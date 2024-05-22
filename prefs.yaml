@@ -1,0 +1,80 @@
+## IF IT STOPS WORKING, JUST CLOSE OUT OF THE WINDOW AND THEN DOUBLE CLICK
+## clickme.bat ON THE DESKTOP
+
+## TO STOP, CHANGE OCP_PERIOD TO 99999999999,
+## SAVE THIS FILE, CLOSE OUT OF THE CONSOLE WINDOW AND
+## DOUBLE CLICK clickme.bat
+
+
+### QUICK SETTINGS ###
+er_current: 10                # Current, in Amps, to maintain,, NOT USED
+percentage_max: 0.70      # current to run, as a percentage below the maximum second derivative
+sweep_interval: 30              # Interval, in minutes, between sweeps
+long_term_record_interval: 10   # In seconds, non-sweeping data
+cstep_size: 1.5               # Amount, in Amps, to increase between each step
+csettle_period: 10             # Time to settle between current steps in the sweep, in seconds      
+max_current: 60            # Max current in sweep
+min_current: 0              # Min current in sweep
+ocp_period: 99999999999999999999                # Time to record back emf/OCP, in seconds
+
+
+### BELOW IS NOT USED ###
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+back_emf_settle_period: 6    
+
+
+
+
+
+
+#############################
+##### ADVANCED SETTINGS #####
+#############################
+
+full_auto: False                # If True, the power supply will continue immediately after the sweep
+### GENERAL SETTINGS ###
+# constant_current: True          # If False, the power supply will assert a constant voltage instead
+# er_voltage: 0.00                # If constant_current is False, the power supply will assert this voltage
+# wire_res: 0.144               # Not used in this version, but this is a good estimate
+# record_back_emf: True         # Not used in this version
+
+### SWEEP SETTINGS ###
+do_csweep: True                # Every sweep_interval minutes, perform a current sweep
+do_vsweep: False               # Every sweep_interval minutes, perform a votlage sweep, after the current sweep (if applicable)
+
+# Current
+starting_current: 0.0
+
+# Voltage
+vstep_size: 0.01
+starting_voltage: 0
+
+# Back EMF
+# back_emf_stop_with_time: True
+
+### COMMUNICATION SETTINGS ###
+psu_ip: "10.2.115.24"
+psu_port: 5025
+socket_timeout: 1
+buffer: 1024
