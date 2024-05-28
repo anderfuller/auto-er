@@ -30,19 +30,25 @@ def main():
         buffer=prefs["psu_buffer"],
     )
 
+    # Initialize our refining_current to one provided
     refining_current = prefs["first_current"]
+
+    # Perform a sweep and override the line above by assigning refining_current
+    # to our newly calculated one
     if prefs["sweep_first"]:
+
+        # Perform the sweep and get the maximum second derivative
         max_sec_div = auto_er.sweep(
             psu=psu,
             step_duration=prefs["step_duration"],
             step_magnitude=prefs["step_magnitude"],
             sweep_limit=prefs["sweep_limit"],
             csv_path=prefs["sweeps_csv_path"],
+            starting_current=prefs["starting_current"],
+            sweep_sample_amount=prefs["sweep_sample_amount"],
         )
 
         refining_current = max_sec_div * prefs["operating_percentage"]
-
-    run_completed = False
 
     # Continue until the resistance shoots up, indicating the run is complete
     while True:
@@ -54,14 +60,12 @@ def main():
             resistance_tolerance=prefs["resistance_tolerance"],
             resistance_time=prefs["resistance_time"],
             csv_path=prefs["data_csv_path"],
-            starting_current=0.0,
-            sample_amount=5,
         )
 
         # If the resistance shot up too high for too long, end the run
         if not refine_succeeded:
             psu.disable()
-            print("all done!")
+            print("All done!")
             break
 
         # Record Back Emf
@@ -79,8 +83,8 @@ def main():
             step_magnitude=prefs["step_magnitude"],
             sweep_limit=prefs["sweep_limit"],
             csv_path=prefs["sweeps_csv_path"],
-            starting_current=0.0,
-            sample_amount=5,
+            starting_current=prefs["starting_current"],
+            sweep_sample_amount=prefs["sweep_sample_amount"],
         )
 
         refining_current = max_sec_div * prefs["operating_percentage"]

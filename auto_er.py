@@ -63,7 +63,6 @@ def refine(
             # If it's had a high enough resistance for a long enough time
             if time.time() - high_r_start_time >= resistance_time:
                 # Break and return False
-                psu.disable()
                 return False
 
         # If the calculated resistance is NOT above the threshold
@@ -89,10 +88,9 @@ def back_emf(psu, back_emf_period, csv_path, disable_first=True):
     time_array = [""]
     voltage_array = [datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")]
     while time.time() - start_time <= back_emf_period:
-        time_array.append(str(time.time() - start_time))
-
         # Index 1 of measure() is the voltage
-        voltage_array.append(str(psu.measure()[1]))
+        voltage_array.append(str(psu.measure()[1])) 
+        time_array.append(str(time.time() - start_time))
 
     with open(csv_path, "a", newline="") as csvfile:
         csv.writer(csvfile).writerow(time_array)
@@ -108,7 +106,7 @@ def sweep(
     sweep_limit,
     csv_path,
     starting_current=0.0,
-    sample_amount=5,
+    sweep_sample_amount=5,
 ):
     current_step = starting_current
     psu.set_current(starting_current)
@@ -125,15 +123,15 @@ def sweep(
 
         total_current = 0
         total_voltage = 0
-        for i in range(0, sample_amount):
+        for i in range(0, sweep_sample_amount):
             c, v = psu.measure()
             total_current += c
             total_voltage += v
 
-        current_array.append(total_current / sample_amount)
-        voltage_array.append(total_voltage / sample_amount)
+        current_array.append(total_current / sweep_sample_amount)
+        voltage_array.append(total_voltage / sweep_sample_amount)
 
-        # If we just recorded the at the sweep_limit, break
+        # If we just recorded at the sweep_limit, break
         if current_step == sweep_limit:
             break
 
@@ -158,58 +156,7 @@ def sweep(
     # Then differentiate that w.r.t. current (w/ size n-1)
     d2E_dI2 = np.diff(dE_dI) / np.diff(current_array[:-1])
 
-    #FIXME: write to csv in best possible manner!!!!!!!
+    # FIXME: write to csv in best possible manner!!!!!!!
 
     # Current corresponding to the index of the maximum second derivative
     return float(current_array[np.argmax(d2E_dI2)])
-
-# OLD
-# import time
-
-# import power_supply
-
-# psu = Power_supply()
-
-# refining_bool = True
-
-# def calibrate():
-#     psu.set_state(Psu_state.CAL)
-#     current_amp = MIN_CURRENT
-#     while(current_amp  <= CAL_LIMIT):
-#         psu.set(current_amp)
-#         wait(STEP_DURATION)
-#         psu.cal_measure()
-#         current_amp += STEP_MAGNITUDE
-
-# def ocp():
-#     psu.set_state(Psu_state.OCP)
-#     start_time = time.time()
-#     psu.disable()
-#     while((time.time() - OCP_PERIOD) <= start_time):
-#         psu.ocp_measure()
-
-# # second derivative modeling
-# def suggset():
-#     psu.export_cal()
-#     psu.export_ocp()
-
-# def refine():
-#     psu.set_state(Psu_state.REFINE)
-#     start_time = time.time()
-#     psu.set(REFINE_CURRENT)
-#     psu.enable()
-#     psu.er_measure()
-#     last_measure = time.time()
-
-#     while((time.time() - (REFINING_PERIOD * 60) <= start_time)):
-#         if((time.time()  - SAMPLE_PERIOD) <= last_measure):
-#             psu.er_measure()
-#             last_measure = time.time()
-
-# # MAIN LOOP
-# while(refining_bool):
-#     # Calibrate first
-#     calibrate()
-#     ocp()
-#     suggest()
-#     refine()

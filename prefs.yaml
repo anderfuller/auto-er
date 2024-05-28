@@ -1,80 +1,33 @@
-## IF IT STOPS WORKING, JUST CLOSE OUT OF THE WINDOW AND THEN DOUBLE CLICK
-## clickme.bat ON THE DESKTOP
+# See README.md for explanations of parameters below
+refining_period: 10
+back_emf_period: 600
+sweep_duration: -1
+sample_period: 10
+step_duration: 10
+step_magnitude: 10
+sweep_limit: 10
+operating_percentage: 10
 
-## TO STOP, CHANGE OCP_PERIOD TO 99999999999,
-## SAVE THIS FILE, CLOSE OUT OF THE CONSOLE WINDOW AND
-## DOUBLE CLICK clickme.bat
+starting_current: 0.0 # Current, in amps, to start the sweep
 
+# Number of times to sample the voltage/current during sweep, keeping the 
+# average
+sweep_sample_amount: 5 
 
-### QUICK SETTINGS ###
-er_current: 10                # Current, in Amps, to maintain,, NOT USED
-percentage_max: 0.70      # current to run, as a percentage below the maximum second derivative
-sweep_interval: 30              # Interval, in minutes, between sweeps
-long_term_record_interval: 10   # In seconds, non-sweeping data
-cstep_size: 1.5               # Amount, in Amps, to increase between each step
-csettle_period: 10             # Time to settle between current steps in the sweep, in seconds      
-max_current: 60            # Max current in sweep
-min_current: 0              # Min current in sweep
-ocp_period: 99999999999999999999                # Time to record back emf/OCP, in seconds
+# Path names for the csv files
+data_csv_path: "data.csv"
+sweeps_csv_path: "sweep.csv"
+back_emf_csv_path: "back_emf.csv"
 
+# Should a sweep be performed right when the script is run before the first 
+# refining period?
+sweep_first: True
 
-### BELOW IS NOT USED ###
+# If a sweep isn't performed right away, refine at this current first (in amps)
+first_current: 0.0
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-back_emf_settle_period: 6    
-
-
-
-
-
-
-#############################
-##### ADVANCED SETTINGS #####
-#############################
-
-full_auto: False                # If True, the power supply will continue immediately after the sweep
-### GENERAL SETTINGS ###
-# constant_current: True          # If False, the power supply will assert a constant voltage instead
-# er_voltage: 0.00                # If constant_current is False, the power supply will assert this voltage
-# wire_res: 0.144               # Not used in this version, but this is a good estimate
-# record_back_emf: True         # Not used in this version
-
-### SWEEP SETTINGS ###
-do_csweep: True                # Every sweep_interval minutes, perform a current sweep
-do_vsweep: False               # Every sweep_interval minutes, perform a votlage sweep, after the current sweep (if applicable)
-
-# Current
-starting_current: 0.0
-
-# Voltage
-vstep_size: 0.01
-starting_voltage: 0
-
-# Back EMF
-# back_emf_stop_with_time: True
-
-### COMMUNICATION SETTINGS ###
-psu_ip: "10.2.115.24"
-psu_port: 5025
-socket_timeout: 1
-buffer: 1024
+# Below are the parameters specific to our Keysight power supply
+psu_address: "10.2.115.24" # IP address of the power supply
+psu_port: 5025 # TCP port of the power supply
+psu_timeout: 1 # TCP socket timeout
+psu_buffer: 1024 # TCP socket buffer
