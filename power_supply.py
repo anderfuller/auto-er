@@ -13,12 +13,21 @@ import socket
 
 
 class Power_supply:
-    def __init__(self, ip="10.2.115.225", port=5025, timeout=5, buffer=1024):
+    def __init__(
+        self,
+        ip="10.2.115.225",
+        port=5025,
+        timeout=5,
+        buffer=1024,
+        max_voltage=12.5,
+    ):
         self.buffer = buffer
 
         self.socket = socket.socket()
         self.socket.settimeout(timeout)
         self.socket.connect((ip, port))
+
+        self.__sendln("VOLT " + str(max_voltage))
 
     # Private function, simply sends a provided command to the power supply and
     # waits until it has been processed, unless the force argument is True.
@@ -36,11 +45,11 @@ class Power_supply:
 
         self.socket.sendall(message.encode())
 
-        # If force is False, wait until '1\n' is sent from the power supply,
+        # If force is False, wait until '1;' is sent from the power supply,
         # indicating that the command is completed. Otherwise move on after
         while not force:
             try:
-                self.mySocket.recv(2).decode()  # FIXME: 1 or 2??
+                self.socket.recv(2)
                 break
 
             except:
@@ -53,7 +62,7 @@ class Power_supply:
             self.__sendln(message)
 
         try:
-            myOutput = self.mySocket.recv(self.buffer).decode()
+            myOutput = self.socket.recv(self.buffer).decode()
 
             # Just return the first part, without the '\n'
             return myOutput.split("\n")[0]
@@ -65,7 +74,7 @@ class Power_supply:
     # Set the current of the power supply. Note that the current will not be
     # supplied if the power supply is disabled.
     def set_current(self, current_to_set):
-        self.__sendln("CURR" + str(current_to_set))
+        self.__sendln("CURR " + str(current_to_set))
 
     # Enables the power supply output
     def enable(self):
@@ -79,12 +88,14 @@ class Power_supply:
     def measure(self):
         meas_curr = float(self.__read("MEAS:CURR?"))
         meas_volt = float(self.__read("MEAS:VOLT?"))
+        print((meas_curr, meas_volt))
         return (meas_curr, meas_volt)
 
-    # Changes some settings that are needed after the power supply turns on
-    def first_time_setup(self, max_current):
-        print("FIXME: change to current limited with correct limits")
+    # Accessor method for main.shell()
+    def read(self, message):
+        return self.__read(message)
 
     # Detach the socket when the class is deleted
     def __del__(self):
+        self.disable()
         self.socket.detach()

@@ -49,8 +49,14 @@ def refine(
                 ]
             )
 
+        calculated_resistance = 0
+        try:
+            calculated_resistance = voltage / current
+        except:
+            pass
+
         # If the calculated resistance is above the threshold
-        if voltage / current >= resistance_tolerance:
+        if calculated_resistance >= resistance_tolerance:
 
             # If this is the first loop...
             if not high_r_state:
@@ -73,7 +79,7 @@ def refine(
             high_r_state = False
 
         # Then, just wait for the next sampling time
-        wait(sample_period)
+        time.sleep(sample_period)
 
     return True
 
@@ -89,7 +95,7 @@ def back_emf(psu, back_emf_period, csv_path, disable_first=True):
     voltage_array = [datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")]
     while time.time() - start_time <= back_emf_period:
         # Index 1 of measure() is the voltage
-        voltage_array.append(str(psu.measure()[1])) 
+        voltage_array.append(str(psu.measure()[1]))
         time_array.append(str(time.time() - start_time))
 
     with open(csv_path, "a", newline="") as csvfile:
@@ -119,7 +125,7 @@ def sweep(
     # Runs until the maximum measurement has been made (see comments below)
     while True:
         psu.set_current(current_step)
-        wait(step_duration)
+        time.sleep(step_duration)
 
         total_current = 0
         total_voltage = 0
@@ -137,6 +143,8 @@ def sweep(
 
         # Otherwise, increment it
         current_step += step_magnitude
+        print("CURRENT_STEP:")
+        print(current_step)
 
         # But if it overshoots, bring it down to the maximum. This is to ensure
         # that there is a measurement at the maximum, even if the
@@ -148,15 +156,48 @@ def sweep(
         if current_step > sweep_limit:
             current_step = sweep_limit
 
+    # Export the data to .csv first
+    with open(csv_path, "a", newline="") as csvfile:
+        # Add in the first column so each sweep appended to the .csv is:
+        # +-----------+-----------+-----------+-----------+----
+        # |  (blank)  | current_0 | current_1 | current_2 | ...
+        # +-----------+-----------+-----------+-----------+----
+        # | timestamp | voltage_0 | voltage_1 | voltage_2 | ...
+        # +-----------+-----------+-----------+-----------+----
+
+        current_row = [""]
+        voltage_row = [datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")]
+        for c in current_array:
+            current_row.append(str(c))
+
+        for v in voltage_array:
+            voltage_row.append(str(v))
+
+        csv.writer(csvfile).writerow(current_row)
+        csv.writer(csvfile).writerow(voltage_row)
+
     # Now with a current and voltage array, find the maximum second derivative
 
-    # First differentiate voltage w.r.t. current
-    dE_dI = np.diff(voltage_array) / np.diff(current_array)
+    # Ignore any divide by zero errors, as they are handled below
+    with np.errstate(divide="ignore", invalid="ignore"):
+        # First differentiate voltage w.r.t. current
+        dE_dI = np.where(
+            # Any zeros in the denominator will now result in the quotient
+            # being zero
+            np.diff(current_array) == 0,  # If entry is zero
+            0,  # Set to zero
+            np.diff(voltage_array)
+            / np.diff(current_array),  # Otherwise divide
+        )
 
-    # Then differentiate that w.r.t. current (w/ size n-1)
-    d2E_dI2 = np.diff(dE_dI) / np.diff(current_array[:-1])
+        # Then differentiate that w.r.t. current (w/ size n-1)
+        d2E_dI2 = np.where(
+            np.diff(current_array)[:-1] == 0,
+            0,
+            np.diff(dE_dI) / np.diff(current_array)[:-1],
+        )
 
-    # FIXME: write to csv in best possible manner!!!!!!!
+    max_sec_div = float(current_array[np.argmax(d2E_dI2)])
 
     # Current corresponding to the index of the maximum second derivative
-    return float(current_array[np.argmax(d2E_dI2)])
+    return max_sec_div

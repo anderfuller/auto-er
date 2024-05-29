@@ -12,11 +12,41 @@ in the same directory.
 import power_supply
 import auto_er
 import yaml
+import sys
+import datetime
+import math
 
 YAML_FILE = "prefs.yaml"
 
 
-def main():
+# "Print Colors": dictionary of ANSI escape codes for console printing purposes
+class prtclrs:
+    reset = "\033[0m"
+    bold = "\033[01m"
+    black = "\033[30m"
+    red = "\033[31m"
+    green = "\033[32m"
+    orange = "\033[33m"
+    blue = "\033[34m"
+    purple = "\033[35m"
+    cyan = "\033[36m"
+    lightgrey = "\033[37m"
+    darkgrey = "\033[90m"
+    lightred = "\033[91m"
+    lightgreen = "\033[92m"
+    yellow = "\033[93m"
+    lightblue = "\033[94m"
+    pink = "\033[95m"
+    lightcyan = "\033[96m"
+
+
+# FIXME: add print statements throughout
+# FIXME: add time estimates before each auto_er action
+# FIXME: add graphing
+# FIXME: add error protection/run script
+
+
+def main(debug):
     # Create a dictionary of all entries from prefs.yaml
     file = open(YAML_FILE, "r")
     prefs = yaml.safe_load(file)
@@ -26,8 +56,9 @@ def main():
     psu = power_supply.Power_supply(
         ip=prefs["psu_address"],
         port=prefs["psu_port"],
-        timeout=["psu_timeout"],
+        timeout=prefs["psu_timeout"],
         buffer=prefs["psu_buffer"],
+        max_voltage=prefs["max_voltage"],
     )
 
     # Initialize our refining_current to one provided
@@ -36,6 +67,46 @@ def main():
     # Perform a sweep and override the line above by assigning refining_current
     # to our newly calculated one
     if prefs["sweep_first"]:
+
+        print(
+            prtclrs.blue
+            + prtclrs.bold
+            + "STARTING SWEEP FROM "
+            + str(prefs["starting_current"])
+            + " TO "
+            + str(prefs["sweep_limit"])
+            + prtclrs.reset
+        )
+
+        # time_estimate = steps * step duration
+        # steps = 1 + ceil(current range / step magnitude)
+        time_estimate = round(
+            (
+                1
+                + math.ceil(
+                    (prefs["sweep_limit"] - prefs["starting_current"])
+                    / prefs["step_magnitude"]
+                )
+            )
+            * prefs["step_duration"]
+        )
+
+        print(
+            "Estimated completion:\t"
+            + str(math.floor(time_estimate / 60))
+            + ":"
+            + str(time_estimate % 60)
+            + " from now or "
+            + str(
+                (
+                    datetime.datetime.now()
+                    + datetime.timedelta(seconds=time_estimate)
+                ).time()
+            )
+        )
+
+        if debug:
+            input("Press enter to continue")
 
         # Perform the sweep and get the maximum second derivative
         max_sec_div = auto_er.sweep(
@@ -52,6 +123,19 @@ def main():
 
     # Continue until the resistance shoots up, indicating the run is complete
     while True:
+        print(
+            prtclrs.red
+            + "REFINING AT "
+            + str(refining_current)
+            + "A FOR "
+            + str(prefs["refining_period"])
+            + " MINUTES"
+            + prtclrs.reset
+        )
+
+        if debug:
+            input("Press enter to continue")
+
         refine_succeeded = auto_er.refine(
             psu=psu,
             refining_current=refining_current,
@@ -65,8 +149,29 @@ def main():
         # If the resistance shot up too high for too long, end the run
         if not refine_succeeded:
             psu.disable()
-            print("All done!")
+            print(
+                prtclrs.purple
+                + prtclrs.bold
+                + "RESISTANCE TOO HIGH, ENDING RUN NOW"
+                + prtclrs.reset
+            )
+
+            if debug:
+                input("Press enter to continue")
+
             break
+
+        print(
+            prtclrs.green
+            + prtclrs.bold
+            + "RECORDING BACK EMF FOR "
+            + str(prefs["back_emf_period"])
+            + " SECONDS"
+            + prtclrs.reset
+        )
+
+        if debug:
+            input("Press enter to continue")
 
         # Record Back Emf
         auto_er.back_emf(
@@ -75,6 +180,46 @@ def main():
             csv_path=prefs["back_emf_csv_path"],
             disable_first=True,
         )
+
+        print(
+            prtclrs.blue
+            + prtclrs.bold
+            + "STARTING SWEEP FROM "
+            + str(prefs["starting_current"])
+            + " TO "
+            + str(prefs["sweep_limit"])
+            + prtclrs.reset
+        )
+
+        # time_estimate = steps * step duration
+        # steps = 1 + ceil(current range / step magnitude)
+        time_estimate = round(
+            (
+                1
+                + math.ceil(
+                    (prefs["sweep_limit"] - prefs["starting_current"])
+                    / prefs["step_magnitude"]
+                )
+            )
+            * prefs["step_duration"]
+        )
+
+        print(
+            "Estimated completion:\t"
+            + str(math.floor(time_estimate / 60))
+            + ":"
+            + str(time_estimate % 60)
+            + " from now or "
+            + str(
+                (
+                    datetime.datetime.now()
+                    + datetime.timedelta(seconds=time_estimate)
+                ).time()
+            )
+        )
+
+        if debug:
+            input("Press enter to continue")
 
         # Perform another sweep
         max_sec_div = auto_er.sweep(
@@ -90,5 +235,35 @@ def main():
         refining_current = max_sec_div * prefs["operating_percentage"]
 
 
+# Just a different mode the script can run in, opens a shell-like interface
+# to the power supply:
+def shell():
+    # Create a dictionary of all entries from prefs.yaml
+    file = open(YAML_FILE, "r")
+    prefs = yaml.safe_load(file)
+    file.close()
+
+    # Initialize a Power_supply object for communication
+    psu = power_supply.Power_supply(
+        ip=prefs["psu_address"],
+        port=prefs["psu_port"],
+        timeout=prefs["psu_timeout"],
+        buffer=prefs["psu_buffer"],
+        max_voltage=prefs["max_voltage"],
+    )
+
+    while True:
+        command = input()
+        print(psu.read(command + ";*OPC?"))
+
+
 if __name__ == "__main__":
-    main()
+    debug = False
+
+    if len(sys.argv) > 1:
+        if sys.argv[1] == "--debug":
+            debug = True
+
+        elif sys.argv[1] == "--shell":
+            shell()
+    main(debug)

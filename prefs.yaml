@@ -1,18 +1,20 @@
 # See README.md for explanations of parameters below
-refining_period: 10
-back_emf_period: 600
+refining_period: 3
+back_emf_period: 5
 sweep_duration: -1
-sample_period: 10
-step_duration: 10
-step_magnitude: 10
-sweep_limit: 10
-operating_percentage: 10
+sample_period: 15
+step_duration: 0.1
+step_magnitude: 0.1
+sweep_limit: 1
+operating_percentage: 0.1
+resistance_tolerance: 0.08
+resistance_time: 10
 
 starting_current: 0.0 # Current, in amps, to start the sweep
 
 # Number of times to sample the voltage/current during sweep, keeping the 
 # average
-sweep_sample_amount: 5 
+sweep_sample_amount: 1
 
 # Path names for the csv files
 data_csv_path: "data.csv"
@@ -27,7 +29,8 @@ sweep_first: True
 first_current: 0.0
 
 # Below are the parameters specific to our Keysight power supply
-psu_address: "10.2.115.24" # IP address of the power supply
+psu_address: "169.254.57.0" # IP address of the power supply
 psu_port: 5025 # TCP port of the power supply
 psu_timeout: 1 # TCP socket timeout
 psu_buffer: 1024 # TCP socket buffer
+max_voltage: 12.5 # Maximum voltage allowed by power supply
