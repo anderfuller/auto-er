@@ -9,6 +9,12 @@ in the same directory.
 
 """
 
+# FIXMES in priority order
+# FIXME: add print statements throughout
+# FIXME: add time estimates before each auto_er action
+# FIXME: add (back) graphing
+# FIXME: add error protection/run script
+
 import power_supply
 import auto_er
 import yaml
@@ -38,12 +44,6 @@ class prtclrs:
     lightblue = "\033[94m"
     pink = "\033[95m"
     lightcyan = "\033[96m"
-
-
-# FIXME: add print statements throughout
-# FIXME: add time estimates before each auto_er action
-# FIXME: add graphing
-# FIXME: add error protection/run script
 
 
 def main(debug):
@@ -92,17 +92,16 @@ def main(debug):
         )
 
         print(
-            "Estimated completion:\t"
-            + str(math.floor(time_estimate / 60))
-            + ":"
-            + str(time_estimate % 60)
-            + " from now or "
+            "\tETA:\t"
             + str(
                 (
                     datetime.datetime.now()
                     + datetime.timedelta(seconds=time_estimate)
                 ).time()
             )
+            + " or "
+            + str(round((time_estimate / 60), 2))
+            + " minutes from now"
         )
 
         if debug:
@@ -123,14 +122,33 @@ def main(debug):
 
     # Continue until the resistance shoots up, indicating the run is complete
     while True:
+
+        #  ____  _____ _____ ___ _   _ _____
+        # |  _ \| ____|  ___|_ _| \ | | ____|
+        # | |_) |  _| | |_   | ||  \| |  _|
+        # |  _ <| |___|  _|  | || |\  | |___
+        # |_| \_\_____|_|   |___|_| \_|_____|
+        #####################################
+
         print(
             prtclrs.red
+            + prtclrs.bold
             + "REFINING AT "
             + str(refining_current)
             + "A FOR "
             + str(prefs["refining_period"])
             + " MINUTES"
             + prtclrs.reset
+        )
+
+        print(
+            "\tETA:\t"
+            + str(
+                (
+                    datetime.datetime.now()
+                    + datetime.timedelta(seconds=prefs["refining_period"])
+                ).time()
+            )
         )
 
         if debug:
@@ -144,6 +162,7 @@ def main(debug):
             resistance_tolerance=prefs["resistance_tolerance"],
             resistance_time=prefs["resistance_time"],
             csv_path=prefs["data_csv_path"],
+            zero_pad_data=prefs["zero_pad_data"],
         )
 
         # If the resistance shot up too high for too long, end the run
@@ -161,6 +180,13 @@ def main(debug):
 
             break
 
+        #  ____    _    ____ _  __     _____ __  __ _____
+        # | __ )  / \  / ___| |/ /    | ____|  \/  |  ___|
+        # |  _ \ / _ \| |   | ' /     |  _| | |\/| | |_
+        # | |_) / ___ \ |___| . \     | |___| |  | |  _|
+        # |____/_/   \_\____|_|\_\    |_____|_|  |_|_|
+        ##################################################
+
         print(
             prtclrs.green
             + prtclrs.bold
@@ -168,6 +194,16 @@ def main(debug):
             + str(prefs["back_emf_period"])
             + " SECONDS"
             + prtclrs.reset
+        )
+
+        print(
+            "\tETA:\t"
+            + str(
+                (
+                    datetime.datetime.now()
+                    + datetime.timedelta(seconds=prefs["back_emf_period"])
+                ).time()
+            )
         )
 
         if debug:
@@ -180,6 +216,13 @@ def main(debug):
             csv_path=prefs["back_emf_csv_path"],
             disable_first=True,
         )
+
+        #  ______        _______ _____ ____
+        # / ___\ \      / / ____| ____|  _ \
+        # \___ \\ \ /\ / /|  _| |  _| | |_) |
+        #  ___) |\ V  V / | |___| |___|  __/
+        # |____/  \_/\_/  |_____|_____|_|
+        #####################################
 
         print(
             prtclrs.blue
@@ -205,17 +248,16 @@ def main(debug):
         )
 
         print(
-            "Estimated completion:\t"
-            + str(math.floor(time_estimate / 60))
-            + ":"
-            + str(time_estimate % 60)
-            + " from now or "
+            "\tETA:\t"
             + str(
                 (
                     datetime.datetime.now()
                     + datetime.timedelta(seconds=time_estimate)
                 ).time()
             )
+            + " or "
+            + str(round((time_estimate / 60), 2))
+            + " minutes from now"
         )
 
         if debug:

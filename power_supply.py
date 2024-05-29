@@ -21,12 +21,17 @@ class Power_supply:
         buffer=1024,
         max_voltage=12.5,
     ):
-        self.buffer = buffer
 
+        self.buffer = buffer
         self.socket = socket.socket()
         self.socket.settimeout(timeout)
         self.socket.connect((ip, port))
 
+        # The power supply operates either at the set current, or the set
+        # voltage, whichever uses *less* power. By setting the voltage to the
+        # maximum allowed by the power supply, we ensure that it will always be
+        # operating at the specified current, as long as the corresponding
+        # voltage is lower than the maximum (constant current mode).
         self.__sendln("VOLT " + str(max_voltage))
 
     # Private function, simply sends a provided command to the power supply and
@@ -37,7 +42,7 @@ class Power_supply:
         # Immediately process the next command, regardless of what the power
         # supply is doing
         if force:
-            self.socket.sendall("*CLS\n".encode())
+            self.socket.sendall("*CLS\n".encode())  # Clears the output queue
 
         # *OPC?: "Causes the instrument to place an ASCII '1' in the Output
         #         Queue when all pending operations are completed."
@@ -95,7 +100,7 @@ class Power_supply:
     def read(self, message):
         return self.__read(message)
 
-    # Detach the socket when the class is deleted
+    # Detach the socket and disable output when the class is deleted
     def __del__(self):
         self.disable()
         self.socket.detach()

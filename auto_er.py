@@ -28,7 +28,21 @@ def refine(
     resistance_tolerance,
     resistance_time,
     csv_path,
+    zero_pad_data=True,
 ):
+    # Add a row of zeroes to make integrating over the data easier (for total
+    # charged passed, faradaic efficiency, etc.). We assume the charge
+    # passed during non-refining is zero and thus can calculate it better.
+    if zero_pad_data:
+        with open(csv_path, "a", newline="") as csvfile:
+            csv.writer(csvfile).writerow(
+                [
+                    datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    "0.0",
+                    "0.0",
+                ]
+            )
+
     psu.enable()
 
     start_time = time.time()
@@ -68,7 +82,20 @@ def refine(
 
             # If it's had a high enough resistance for a long enough time
             if time.time() - high_r_start_time >= resistance_time:
-                # Break and return False
+                psu.disable()  # Disable the power supply,
+                if zero_pad_data:  # Add a row of zeroes,
+                    with open(csv_path, "a", newline="") as csvfile:
+                        csv.writer(csvfile).writerow(
+                            [
+                                datetime.datetime.now().strftime(
+                                    "%Y-%m-%d %H:%M:%S"
+                                ),
+                                "0.0",
+                                "0.0",
+                            ]
+                        )
+
+                # Break, and return False
                 return False
 
         # If the calculated resistance is NOT above the threshold
@@ -80,6 +107,17 @@ def refine(
 
         # Then, just wait for the next sampling time
         time.sleep(sample_period)
+
+        # Add a row of zeroes indicating we are done refining
+        if zero_pad_data:
+            with open(csv_path, "a", newline="") as csvfile:
+                csv.writer(csvfile).writerow(
+                    [
+                        datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                        "0.0",
+                        "0.0",
+                    ]
+                )
 
     return True
 
