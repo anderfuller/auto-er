@@ -93,7 +93,6 @@ class Power_supply:
     def measure(self):
         meas_curr = float(self.__read("MEAS:CURR?"))
         meas_volt = float(self.__read("MEAS:VOLT?"))
-        print((meas_curr, meas_volt))
         return (meas_curr, meas_volt)
 
     # Accessor method for main.shell()

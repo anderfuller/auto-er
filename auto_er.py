@@ -181,9 +181,7 @@ def sweep(
 
         # Otherwise, increment it
         current_step += step_magnitude
-        print("CURRENT_STEP:")
-        print(current_step)
-
+        
         # But if it overshoots, bring it down to the maximum. This is to ensure
         # that there is a measurement at the maximum, even if the
         # step_magnitude would normally overshoot it. For example, with a

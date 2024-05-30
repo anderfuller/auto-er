@@ -1,12 +1,12 @@
 # See README.md for explanations of parameters below
-refining_period: 3  # seconds
+refining_period: 3  # minutes
 back_emf_period: 5  # seconds
 sweep_duration: -1  # seconds
-sample_period: 15   # minutes
+sample_period: 15   # seconds
 step_duration: 0.1  # seconds
 step_magnitude: 0.1 # amps
 sweep_limit: 1      # amps
-operating_percentage: 0.1   # 0.00 - 1.00
+operating_percentage: 0.1   # 0.00 <-> 1.00
 resistance_tolerance: 0.08  # ohms
 resistance_time: 10         # seconds
 

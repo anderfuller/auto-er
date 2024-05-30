@@ -10,8 +10,7 @@ in the same directory.
 """
 
 # FIXMES in priority order
-# FIXME: add print statements throughout
-# FIXME: add time estimates before each auto_er action
+# FIXME: add sweep print statements?
 # FIXME: add (back) graphing
 # FIXME: add error protection/run script
 
@@ -130,6 +129,11 @@ def main(debug):
         # |_| \_\_____|_|   |___|_| \_|_____|
         #####################################
 
+        # Refresh all the parameters
+        file = open(YAML_FILE, "r")
+        prefs = yaml.safe_load(file)
+        file.close()
+
         print(
             prtclrs.red
             + prtclrs.bold
@@ -187,6 +191,11 @@ def main(debug):
         # |____/_/   \_\____|_|\_\    |_____|_|  |_|_|
         ##################################################
 
+        # Refresh all the parameters
+        file = open(YAML_FILE, "r")
+        prefs = yaml.safe_load(file)
+        file.close()
+
         print(
             prtclrs.green
             + prtclrs.bold
@@ -223,6 +232,11 @@ def main(debug):
         #  ___) |\ V  V / | |___| |___|  __/
         # |____/  \_/\_/  |_____|_____|_|
         #####################################
+
+        # Refresh all the parameters
+        file = open(YAML_FILE, "r")
+        prefs = yaml.safe_load(file)
+        file.close()
 
         print(
             prtclrs.blue
@@ -308,4 +322,5 @@ if __name__ == "__main__":
 
         elif sys.argv[1] == "--shell":
             shell()
+
     main(debug)

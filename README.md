@@ -12,8 +12,8 @@ Consider the following electrochemical reactions and their standard reduction po
 
 | Reaction                            | $E^{0^\prime} (\text V)$ |
 | ----------------------------------- | ------------------------ |
-| $M_a^+ + e^-\rightleftharpoons M_a$ | -1.00                    |
-| $M_b^+ + e^-\rightleftharpoons M_b$ | -1.30                    |
+| $M_a^+ + e^-\rightleftharpoons M_a$ | 1.00                    |
+| $M_b^+ + e^-\rightleftharpoons M_b$ | 1.30                    |
 
 For the sake of example, we are given a sample with $M_a$ and $M_b$ present (pictured in pink below).
 
@@ -27,21 +27,17 @@ Once cooled, the system will then contain a crucible with $M_a$ and one without.
 
 ## Difficulties
 
-Now that the basic goal is laid out, a process can be derived. The most difficult part of the process is determining which voltage to apply. Since we are working in a two-electrode setup, we cannot know the true potential at either of electrodes, just their voltage difference.
+Now that the basic goal is laid out, a process can be derived. The most difficult part of the process is determining which voltage to apply. Since we are working in a two-electrode setup, we cannot know the true electrochemical potential at either electrode, just their voltage difference.
 
-The potential difference we must apply will change as the process continues, as described in the Nernst Equation:
-
-$$E_{\text{eq}}=E^{0^\prime}-{RT\over{nF}}\ln \left({C_\text{red}\over C_\text{ox}}\right)$$
-
-where $C_\text{red}$ is the concentration of our reduced species of interest ($M_a$ in this case) and $C_\text{ox}$ is the concentration of our oxideized species of interest ($M_a^+$). Because the goal of electrorefining is to change this concentration ratio, the potential needed to advance this reaction will constantly be changing.
+The voltage we must apply will change as the concentrations of the two metals change. Because the goal of electrorefining is to change this concentration ratio, the voltage needed to advance this reaction will constantly be changing.
 
 ## Solution
 
 To overcome this changing equilibrium potential, we perform a linear sweep amperometry scan. Afterwards, we take the numerical second derivitive and find its maximum. Then, we take a specified percentage of that maximum and operate at the resulting current.
 
-This ensures that we find the "deviation point" or when the voltage-current relationship is no longer strictly linear. At this point, $M_a$ will reduce on the anode at the fastest rate possible without reducing any $M_b$. To err on the side of caution, we do not operate at this point, but a percentage below it. This is to ensure that we do not reduce any $M_b$, which nullifies the point of the electrorefining process.
+This ensures that we find the "deviation point" or when the voltage-current relationship is no longer strictly linear. At this point, $M_a$ will oxidize on the cathode at the fastest rate possible without reducing any $M_b$. To err on the side of caution, we do not operate at this point, but a percentage below it. This is to ensure that we do not oxidze any $M_b$, which nullifies the point of the electrorefining process.
 
-In order to for the run to automatically complete, we observe the caclulated DC resistance by dividing the measured voltage by the measured current. Once the run is completed, the calculated resistance shoots upwards quickly and drastically (as much as 30x normal). Once it is above the thresdhold for a long enough amount of time, the run automatically stopss
+In order to for the run to automatically complete, we observe the caclulated DC resistance by dividing the measured voltage by the measured current. Once the run is completed and $M_a$ is depleted from the original crucible, the calculated resistance shoots upwards quickly and drastically (as much as 30x normal). Once it is above the thresdhold for a long enough amount of time, the run automatically stopss
 
 ## Parameters
 
@@ -86,7 +82,17 @@ Install via `pip` or any package manager of your choice
 * [PyYAML](https://pypi.org/project/PyYAML/)
 * [numpy](https://pypi.org/project/numpy/)
 
-<!-- ****
+## Future Work
+
+* [ ] Rudimentary calculations during run (total charge passed, estimated completion percentage)
+* [ ] Re-evaluate step duration (maybe take reading when voltage stops changing beyond a certain amount)
+* [ ] GUI (see the `flet` branch)
+  * At-a-glance run progress (time elapsed, charge passed, estimated completion percentage)
+  * User intervention handling (stop button)
+  * Change parameters on the fly
+  * Easily view graphs of past sweeps/back emf measurements
+
+<!--
 
 diagrams:
 
