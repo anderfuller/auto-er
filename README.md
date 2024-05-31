@@ -2,6 +2,26 @@
 
 Developed by Anderson Fuller: [af383@byu.edu](docs/mailto:af383@byu.edu)
 
+## Usage
+
+In the top level directory, there are 4 important files:
+
+* `main.py`: Main script that drives the whole ER process
+* `auto_er.py`: This is where all the logic for the refining and sweeps/second derivitivie is
+* `prefs.yaml`: Contains all user-specified parameters that the script needs. Can be changed during an ER run as the script pulls data between refining/back emf measuring/sweeping
+* `power_supply.py`: Specific to our Keysight programmable DC power supply, can be refactored for other devices/communication protocols
+
+To use this project, clone the repo or download the above files, navigate to the directory containing those files and run: `$ python ./main.py`
+
+## Dependencies
+
+* Python 3.x
+
+Install via `pip` or any package manager of your choice:
+
+* [PyYAML](https://pypi.org/project/PyYAML/)
+* [numpy](https://pypi.org/project/numpy/)
+
 ## Purpose
 
 The purpose of this project is to maximize the yield of electrorefining in a two-electrode electrochemical cell. This is typically a very straightforward process, but difficulties arise when there are many impurities in the system with similar standard apparent reduction potentials ($E^{0^\prime}$), sometimes referred to as formal potentials. By performing linear sweep amperometry throughout the process, the maximum operating potential can be found and applied. Using an automatic DC power suppy, this entire process, which can take upwards of 36 hours, can be automated to maximize yield while minimizing the need of user intervention.
@@ -12,8 +32,8 @@ Consider the following electrochemical reactions and their standard reduction po
 
 | Reaction                            | $E^{0^\prime} (\text V)$ |
 | ----------------------------------- | ------------------------ |
-| $M_a^+ + e^-\rightleftharpoons M_a$ | 1.00                    |
-| $M_b^+ + e^-\rightleftharpoons M_b$ | 1.30                    |
+| $M_a^+ + e^-\rightleftharpoons M_a$ | 1.00                     |
+| $M_b^+ + e^-\rightleftharpoons M_b$ | 1.30                     |
 
 For the sake of example, we are given a sample with $M_a$ and $M_b$ present (pictured in pink below).
 
@@ -71,19 +91,9 @@ The asterisked parameters are optional; you only need to specify one. Both are i
 |      **B**      |    Automatic    |       X       |      X      |        X        |
 |      **C**      |        X        |       X       |      X      |   X, ignored    |
 
-## Notes
-
-This was developed to work with a Keysight programmable power supply via network communication, so `power_suppply.py` is specific to our model and communication protocol.
-
-## Dependencies
-
-Install via `pip` or any package manager of your choice
-
-* [PyYAML](https://pypi.org/project/PyYAML/)
-* [numpy](https://pypi.org/project/numpy/)
-
 ## Future Work
 
+* [ ] Implement sweep duration parameter (currently only using step duration)
 * [ ] Rudimentary calculations during run (total charge passed, estimated completion percentage)
 * [ ] Re-evaluate step duration (maybe take reading when voltage stops changing beyond a certain amount)
 * [ ] GUI (see the `flet` branch)
