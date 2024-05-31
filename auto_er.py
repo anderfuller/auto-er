@@ -108,16 +108,16 @@ def refine(
         # Then, just wait for the next sampling time
         time.sleep(sample_period)
 
-        # Add a row of zeroes indicating we are done refining
-        if zero_pad_data:
-            with open(csv_path, "a", newline="") as csvfile:
-                csv.writer(csvfile).writerow(
-                    [
-                        datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                        "0.0",
-                        "0.0",
-                    ]
-                )
+    # Add a row of zeroes indicating we are done refining
+    if zero_pad_data:
+        with open(csv_path, "a", newline="") as csvfile:
+            csv.writer(csvfile).writerow(
+                [
+                    datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    "0.0",
+                    "0.0",
+                ]
+            )
 
     return True
 
@@ -181,7 +181,7 @@ def sweep(
 
         # Otherwise, increment it
         current_step += step_magnitude
-        
+
         # But if it overshoots, bring it down to the maximum. This is to ensure
         # that there is a measurement at the maximum, even if the
         # step_magnitude would normally overshoot it. For example, with a

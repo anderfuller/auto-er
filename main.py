@@ -150,7 +150,7 @@ def main(debug):
             + str(
                 (
                     datetime.datetime.now()
-                    + datetime.timedelta(seconds=prefs["refining_period"])
+                    + datetime.timedelta(seconds=prefs["refining_period"] * 60)
                 ).time()
             )
         )
