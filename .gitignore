@@ -1,3 +1,6 @@
+# Any .csv files generated:
+*.csv
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
