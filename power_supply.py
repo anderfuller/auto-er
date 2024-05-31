@@ -3,7 +3,7 @@
 
 """ power_supply.py
 
-This module contains the logic for basic communication with our programmble
+This module contains the logic for basic communication with our programmable
 Keysight power supply.
 
 """
@@ -31,12 +31,12 @@ class Power_supply:
         # voltage, whichever uses *less* power. By setting the voltage to the
         # maximum allowed by the power supply, we ensure that it will always be
         # operating at the specified current, as long as the corresponding
-        # voltage is lower than the maximum (constant current mode).
+        # voltage is lower than the maximum voltage (constant current mode).
         self.__sendln("VOLT " + str(max_voltage))
 
     # Private function, simply sends a provided command to the power supply and
     # waits until it has been processed, unless the force argument is True.
-    # Due to the way Python 3.x encodes strings by default, the messaage has to
+    # Due to the way Python 3.x encodes strings by default, the message has to
     # be encoded from Unicode (UTF-16 or 32) <--> UTF-8
     def __sendln(self, message, force=False):
         # Immediately process the next command, regardless of what the power
@@ -60,7 +60,7 @@ class Power_supply:
             except:
                 pass
 
-    # Returns whatever is in the socket's output buffer. If a messaage is
+    # Returns whatever is in the socket's output buffer. If a message is
     # provided, send it first and return the result
     def __read(self, message=""):
         if message != "":

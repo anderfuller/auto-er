@@ -80,7 +80,7 @@ def refine(
                 # And set the high_r_state bool so the start time doesn't reset
                 high_r_state = True
 
-            # If it's had a high enough resistance for a long enough time
+            # If it has had a high enough resistance for a long enough time
             if time.time() - high_r_start_time >= resistance_time:
                 psu.disable()  # Disable the power supply,
                 if zero_pad_data:  # Add a row of zeroes,
