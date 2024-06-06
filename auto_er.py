@@ -29,6 +29,8 @@ def refine(
     resistance_time,
     csv_path,
     zero_pad_data=True,
+    max_refine_voltage=7.5,
+    max_psu_voltage=12,
 ):
     # Add a row of zeroes to make integrating over the data easier (for total
     # charged passed, faradaic efficiency, etc.). We assume the charge
@@ -42,6 +44,10 @@ def refine(
                     "0.0",
                 ]
             )
+
+    # Set the voltage of the power supply to a provided amount as a rudimentary
+    # way to prevent reduction of the salt (Lithium in our case)
+    psu.set_voltage(max_refine_voltage)
 
     psu.enable()
 
@@ -83,6 +89,7 @@ def refine(
             # If it has had a high enough resistance for a long enough time
             if time.time() - high_r_start_time >= resistance_time:
                 psu.disable()  # Disable the power supply,
+                psu.set_voltage(max_psu_voltage)  # Set the max back
                 if zero_pad_data:  # Add a row of zeroes,
                     with open(csv_path, "a", newline="") as csvfile:
                         csv.writer(csvfile).writerow(
@@ -119,6 +126,8 @@ def refine(
                 ]
             )
 
+    # Set the max voltage back to what it was before
+    psu.set_voltage(max_psu_voltage)
     return True
 
 

@@ -10,6 +10,11 @@ operating_percentage: 0.1   # 0.00 <-> 1.00
 resistance_tolerance: 0.08  # ohms
 resistance_time: 10         # seconds
 
+# Maximum voltage, in volts, to refine. If the voltage required to meet the
+# refining current exceeds this amount, the power suppply switch to constant
+# voltage mode and supply this voltage instead
+max_refine_voltage: 7.5
+
 # Current, in amps, to start the sweep
 starting_current: 0.0 
 
@@ -40,4 +45,4 @@ psu_address: "169.254.57.0"   # IP address of the power supply
 psu_port: 5025                # TCP port of the power supply
 psu_timeout: 1                # TCP socket timeout
 psu_buffer: 1024              # TCP socket buffer
-max_voltage: 12.5             # Maximum voltage allowed by power supply
+max_psu_voltage: 12.5         # Maximum voltage allowed by power supply

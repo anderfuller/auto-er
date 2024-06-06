@@ -57,7 +57,7 @@ def main(debug):
         port=prefs["psu_port"],
         timeout=prefs["psu_timeout"],
         buffer=prefs["psu_buffer"],
-        max_voltage=prefs["max_voltage"],
+        max_psu_voltage=prefs["max_psu_voltage"],
     )
 
     # Initialize our refining_current to one provided
@@ -167,6 +167,8 @@ def main(debug):
             resistance_time=prefs["resistance_time"],
             csv_path=prefs["data_csv_path"],
             zero_pad_data=prefs["zero_pad_data"],
+            max_refine_voltage=prefs["max_refine_voltage"],
+            max_psu_voltage=prefs["max_psu_voltage"], 
         )
 
         # If the resistance shot up too high for too long, end the run
@@ -183,48 +185,6 @@ def main(debug):
                 input("Press enter to continue")
 
             break
-
-        #  ____    _    ____ _  __     _____ __  __ _____
-        # | __ )  / \  / ___| |/ /    | ____|  \/  |  ___|
-        # |  _ \ / _ \| |   | ' /     |  _| | |\/| | |_
-        # | |_) / ___ \ |___| . \     | |___| |  | |  _|
-        # |____/_/   \_\____|_|\_\    |_____|_|  |_|_|
-        ##################################################
-
-        # Refresh all the parameters
-        file = open(YAML_FILE, "r")
-        prefs = yaml.safe_load(file)
-        file.close()
-
-        print(
-            prtclrs.green
-            + prtclrs.bold
-            + "RECORDING BACK EMF FOR "
-            + str(prefs["back_emf_period"])
-            + " SECONDS"
-            + prtclrs.reset
-        )
-
-        print(
-            "\tETA:\t"
-            + str(
-                (
-                    datetime.datetime.now()
-                    + datetime.timedelta(seconds=prefs["back_emf_period"])
-                ).time()
-            )
-        )
-
-        if debug:
-            input("Press enter to continue")
-
-        # Record Back Emf
-        auto_er.back_emf(
-            psu=psu,
-            back_emf_period=prefs["back_emf_period"],
-            csv_path=prefs["back_emf_csv_path"],
-            disable_first=True,
-        )
 
         #  ______        _______ _____ ____
         # / ___\ \      / / ____| ____|  _ \
@@ -290,6 +250,48 @@ def main(debug):
 
         refining_current = max_sec_div * prefs["operating_percentage"]
 
+        #  ____    _    ____ _  __     _____ __  __ _____
+        # | __ )  / \  / ___| |/ /    | ____|  \/  |  ___|
+        # |  _ \ / _ \| |   | ' /     |  _| | |\/| | |_
+        # | |_) / ___ \ |___| . \     | |___| |  | |  _|
+        # |____/_/   \_\____|_|\_\    |_____|_|  |_|_|
+        ##################################################
+
+        # Refresh all the parameters
+        file = open(YAML_FILE, "r")
+        prefs = yaml.safe_load(file)
+        file.close()
+
+        print(
+            prtclrs.green
+            + prtclrs.bold
+            + "RECORDING BACK EMF FOR "
+            + str(prefs["back_emf_period"])
+            + " SECONDS"
+            + prtclrs.reset
+        )
+
+        print(
+            "\tETA:\t"
+            + str(
+                (
+                    datetime.datetime.now()
+                    + datetime.timedelta(seconds=prefs["back_emf_period"])
+                ).time()
+            )
+        )
+
+        if debug:
+            input("Press enter to continue")
+
+        # Record Back Emf
+        auto_er.back_emf(
+            psu=psu,
+            back_emf_period=prefs["back_emf_period"],
+            csv_path=prefs["back_emf_csv_path"],
+            disable_first=True,
+        )
+
 
 # Just a different mode the script can run in, opens a shell-like interface
 # to the power supply:
@@ -305,7 +307,7 @@ def shell():
         port=prefs["psu_port"],
         timeout=prefs["psu_timeout"],
         buffer=prefs["psu_buffer"],
-        max_voltage=prefs["max_voltage"],
+        max_psu_voltage=prefs["max_psu_voltage"],
     )
 
     while True:

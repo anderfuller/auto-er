@@ -19,7 +19,7 @@ class Power_supply:
         port=5025,
         timeout=5,
         buffer=1024,
-        max_voltage=12.5,
+        max_psu_voltage=12.5,
     ):
 
         self.buffer = buffer
@@ -32,7 +32,7 @@ class Power_supply:
         # maximum allowed by the power supply, we ensure that it will always be
         # operating at the specified current, as long as the corresponding
         # voltage is lower than the maximum voltage (constant current mode).
-        self.__sendln("VOLT " + str(max_voltage))
+        self.set_voltage(max_psu_voltage)
 
     # Private function, simply sends a provided command to the power supply and
     # waits until it has been processed, unless the force argument is True.
@@ -80,6 +80,13 @@ class Power_supply:
     # supplied if the power supply is disabled.
     def set_current(self, current_to_set):
         self.__sendln("CURR " + str(current_to_set))
+
+    # Set the maximum voltage of the power supply. Only used if the voltage
+    # needed to run at the specified current exceeds this amount. If so, the
+    # power supply will then operate in constant voltage mode at this set
+    # voltage.
+    def set_voltage(self, voltage_to_set):
+        self.__sendln("VOLT " + str(voltage_to_set_to_set))
 
     # Enables the power supply output
     def enable(self):
