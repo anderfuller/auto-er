@@ -86,7 +86,7 @@ class Power_supply:
     # power supply will then operate in constant voltage mode at this set
     # voltage.
     def set_voltage(self, voltage_to_set):
-        self.__sendln("VOLT " + str(voltage_to_set_to_set))
+        self.__sendln("VOLT " + str(voltage_to_set))
 
     # Enables the power supply output
     def enable(self):
