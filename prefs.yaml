@@ -1,14 +1,18 @@
 # See README.md for explanations of parameters below
-refining_period: 3  # minutes
-back_emf_period: 5  # seconds
-sweep_duration: -1  # seconds
-sample_period: 15   # seconds
-step_duration: 0.1  # seconds
+refining_period: 3 # minutes
+back_emf_period: 5 # seconds
+sweep_duration: -1 # seconds
+sample_period: 15 # seconds
+step_duration: 0.1 # seconds
 step_magnitude: 0.1 # amps
-sweep_limit: 1      # amps
-operating_percentage: 0.1   # 0.00 <-> 1.00
-resistance_tolerance: 0.08  # ohms
-resistance_time: 10         # seconds
+sweep_limit: 1 # amps
+operating_percentage: 0.1 # 0.00 <-> 1.00
+resistance_tolerance: 0.08 # ohms
+resistance_time: 10 # seconds
+
+# Time, in seconds to print out a back emf voltage. Must be less than 
+# back_emf_period in order to function
+back_emf_print_time: 45
 
 # Maximum voltage, in volts, to refine. If the voltage required to meet the
 # refining current exceeds this amount, the power suppply switch to constant
@@ -16,9 +20,9 @@ resistance_time: 10         # seconds
 max_refine_voltage: 7.5
 
 # Current, in amps, to start the sweep
-starting_current: 0.0 
+starting_current: 0.0
 
-# Number of times to sample the voltage/current at each step during sweep, 
+# Number of times to sample the voltage/current at each step during sweep,
 # keeping the average
 sweep_sample_amount: 1
 
@@ -36,13 +40,13 @@ back_emf_csv_path: "back_emf.csv"
 # refining period?
 sweep_first: True
 
-# If a sweep isn't performed right away (if sweep_first is False), refine at 
+# If a sweep isn't performed right away (if sweep_first is False), refine at
 # this current first (in amps)
 first_current: 0.0
 
 # Below are the parameters specific to our Keysight power supply
-psu_address: "169.254.57.0"   # IP address of the power supply
-psu_port: 5025                # TCP port of the power supply
-psu_timeout: 1                # TCP socket timeout
-psu_buffer: 1024              # TCP socket buffer
-max_psu_voltage: 12.5         # Maximum voltage allowed by power supply
+psu_address: "169.254.57.0" # IP address of the power supply
+psu_port: 5025 # TCP port of the power supply
+psu_timeout: 1 # TCP socket timeout
+psu_buffer: 1024 # TCP socket buffer
+max_psu_voltage: 12.5 # Maximum voltage allowed by power supply

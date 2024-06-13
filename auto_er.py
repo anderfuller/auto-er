@@ -86,6 +86,14 @@ def refine(
                 # And set the high_r_state bool so the start time doesn't reset
                 high_r_state = True
 
+            print(
+                "\033[35m"  # Purple
+                + "Calculated resistance above threshold.\t"
+                + str(resistance_time - (time.time() - high_r_start_time))
+                + "s until termination."
+                + "\033[0m"  # Reset
+            )
+
             # If it has had a high enough resistance for a long enough time
             if time.time() - high_r_start_time >= resistance_time:
                 psu.disable()  # Disable the power supply,
@@ -132,7 +140,9 @@ def refine(
 
 
 # Constantly records the voltage for a specified time to the csv
-def back_emf(psu, back_emf_period, csv_path, disable_first=True):
+def back_emf(
+    psu, back_emf_period, csv_path, disable_first=True, back_emf_print_time=45
+):
     if disable_first:
         psu.disable()
 
@@ -140,10 +150,25 @@ def back_emf(psu, back_emf_period, csv_path, disable_first=True):
 
     time_array = [""]
     voltage_array = [datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")]
+
+    emf_printed = False  # So it prints a voltage value just once
     while time.time() - start_time <= back_emf_period:
         # Index 1 of measure() is the voltage
-        voltage_array.append(str(psu.measure()[1]))
+        volt_meas = psu.measure()[1]
+        voltage_array.append(str(volt_meas))
         time_array.append(str(time.time() - start_time))
+
+        # Print out voltage after a specified time
+        if time.time() - start_time >= back_emf_print_time and not emf_printed:
+            print(
+                "\033[32m"  # Green
+                + "Back emf voltage at "
+                + str(back_emf_print_time)
+                + "s:\t"
+                + str(volt_meas)
+                + "\033[0m"  # Reset
+            )
+            emf_printed = True
 
     with open(csv_path, "a", newline="") as csvfile:
         csv.writer(csvfile).writerow(time_array)

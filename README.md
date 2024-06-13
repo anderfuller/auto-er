@@ -112,5 +112,7 @@ diagrams:
         https://www.desmos.com/calculator/krfqa2l97h
         https://www.desmos.com/calculator/uzhmusnkfg
         https://www.desmos.com/calculator/s6i6tq6nnx
+        https://www.desmos.com/calculator/mkvjltg3ck
+        https://www.desmos.com/calculator/lba3agvbhu
 
 -->

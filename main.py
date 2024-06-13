@@ -10,6 +10,9 @@ in the same directory.
 """
 
 # FIXMES in priority order
+# FIXME: smoothing function on sweeps
+# FIXME: if x of y'' > x of y', just drop last refining current down
+# FIXME: if 1.25 < x < 1.75, just drop last refining current down
 # FIXME: add sweep print statements?
 # FIXME: add (back) graphing
 # FIXME: add error protection/run script
@@ -168,7 +171,7 @@ def main(debug):
             csv_path=prefs["data_csv_path"],
             zero_pad_data=prefs["zero_pad_data"],
             max_refine_voltage=prefs["max_refine_voltage"],
-            max_psu_voltage=prefs["max_psu_voltage"], 
+            max_psu_voltage=prefs["max_psu_voltage"],
         )
 
         # If the resistance shot up too high for too long, end the run
@@ -290,6 +293,7 @@ def main(debug):
             back_emf_period=prefs["back_emf_period"],
             csv_path=prefs["back_emf_csv_path"],
             disable_first=True,
+            back_emf_print_time=prefs["back_emf_print_time"],
         )
 
 
