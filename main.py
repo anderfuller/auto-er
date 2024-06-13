@@ -174,8 +174,12 @@ def main(debug):
             max_psu_voltage=prefs["max_psu_voltage"],
         )
 
-        # If the resistance shot up too high for too long, end the run
-        if not refine_succeeded:
+        # Stop immediately?
+        if (
+            not refine_succeeded  # Res. was too too high
+            and prefs["stop_after_resistance"]  # Stop after
+            and not prefs["sweep_after_resistance"]  # Don't sweep though
+        ):
             psu.disable()
             print(
                 prtclrs.purple
@@ -187,6 +191,7 @@ def main(debug):
             if debug:
                 input("Press enter to continue")
 
+            # End the program
             break
 
         #  ______        _______ _____ ____
@@ -296,6 +301,24 @@ def main(debug):
             back_emf_print_time=prefs["back_emf_print_time"],
         )
 
+       # Stop now? After sweep?
+        if (
+            not refine_succeeded  # Res. was too too high
+            and prefs["stop_after_resistance"]  # Stop after
+        ):
+            psu.disable()
+            print(
+                prtclrs.purple
+                + prtclrs.bold
+                + "RESISTANCE TOO HIGH, ENDING RUN NOW"
+                + prtclrs.reset
+            )
+
+            if debug:
+                input("Press enter to continue")
+
+            # End the program
+            break
 
 # Just a different mode the script can run in, opens a shell-like interface
 # to the power supply:
