@@ -120,7 +120,10 @@ def main(debug):
             sweep_sample_amount=prefs["sweep_sample_amount"],
         )
 
-        refining_current = max_sec_div * prefs["operating_percentage"]
+        refining_current = (
+            max_sec_div * prefs["operating_percentage"]
+            + prefs["operating_offset"]
+        )
 
     # Continue until the resistance shoots up, indicating the run is complete
     while True:
@@ -256,7 +259,10 @@ def main(debug):
             sweep_sample_amount=prefs["sweep_sample_amount"],
         )
 
-        refining_current = max_sec_div * prefs["operating_percentage"]
+        refining_current = (
+            max_sec_div * prefs["operating_percentage"]
+            + prefs["operating_offset"]
+        )
 
         #  ____    _    ____ _  __     _____ __  __ _____
         # | __ )  / \  / ___| |/ /    | ____|  \/  |  ___|
@@ -301,7 +307,7 @@ def main(debug):
             back_emf_print_time=prefs["back_emf_print_time"],
         )
 
-       # Stop now? After sweep?
+        # Stop now? After sweep?
         if (
             not refine_succeeded  # Res. was too too high
             and prefs["stop_after_resistance"]  # Stop after
@@ -319,6 +325,7 @@ def main(debug):
 
             # End the program
             break
+
 
 # Just a different mode the script can run in, opens a shell-like interface
 # to the power supply:

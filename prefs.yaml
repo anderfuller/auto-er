@@ -10,15 +10,19 @@ operating_percentage: 0.1 # 0.00 <-> 1.00
 resistance_tolerance: 0.08 # ohms
 resistance_time: 10 # seconds
 
-# Once the calculated resistance is high enough for long enough (as defined 
+# Current, in amps, to add to the highest second derivative such that:
+# operating current = (max_sec_div * operating_percentage) + operating_offset 
+operating_offset: 0
+
+# Once the calculated resistance is high enough for long enough (as defined
 # above), should it perform another sweep?
 sweep_after_resistance: False
 
-# Once the calculated resistance is high enough for long enough (as defined 
+# Once the calculated resistance is high enough for long enough (as defined
 # above), should it continue or terminate?
 stop_after_resistance: False
 
-# Time, in seconds to print out a back emf voltage. Must be less than 
+# Time, in seconds to print out a back emf voltage. Must be less than
 # back_emf_period in order to function
 back_emf_print_time: 45
 
