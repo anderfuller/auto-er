@@ -139,7 +139,8 @@ def refine(
     return True
 
 
-# Constantly records the voltage for a specified time to the csv
+# Constantly records the voltage for a specified time to the csv, returning a
+# voltage after a specific amount of time has passed
 def back_emf(
     psu, back_emf_period, csv_path, disable_first=True, back_emf_print_time=45
 ):
@@ -151,6 +152,9 @@ def back_emf(
     time_array = [""]
     voltage_array = [datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")]
 
+    # Initialize the var to return
+    volt_at_print_time = -1
+
     emf_printed = False  # So it prints a voltage value just once
     while time.time() - start_time <= back_emf_period:
         # Index 1 of measure() is the voltage
@@ -160,6 +164,7 @@ def back_emf(
 
         # Print out voltage after a specified time
         if time.time() - start_time >= back_emf_print_time and not emf_printed:
+            volt_at_print_time = volt_meas
             print(
                 "\033[32m"  # Green
                 + "Back emf voltage at "
@@ -173,6 +178,9 @@ def back_emf(
     with open(csv_path, "a", newline="") as csvfile:
         csv.writer(csvfile).writerow(time_array)
         csv.writer(csvfile).writerow(voltage_array)
+
+    # Return the voltage that's printed to the console
+    return volt_at_print_time
 
 
 # Performs a current sweep with the specified parameters and returns the
@@ -271,3 +279,24 @@ def sweep(
 
     # Current corresponding to the index of the maximum second derivative
     return max_sec_div
+
+
+# Given two arrays of equal length, x and y, returns a second derivative of the
+# two arrays from a cubic Savitzky-Golay filter with window size 5. The first
+# two entries are zero to help with indexing
+def __sg_sec_div_smoothed__(x, y):
+    Ypp = np.array([0, 0])
+    for i in range(2, len(x) - 2):
+        yim2 = y[i - 2]
+        yim1 = y[i - 1]
+        yi = y[i]
+        yi1 = y[i + 1]
+        yi2 = y[i + 2]
+        dx = x[i] - x[i - 1]
+
+        Yppi = (1 / (7 * dx * dx)) * (
+            (2 * yim2) - (yim1) - (2 * yi) - (yi1) + (2 * yi2)
+        )
+        Ypp = np.append(Ypp, Yppi)
+
+    return Ypp

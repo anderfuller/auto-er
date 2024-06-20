@@ -209,60 +209,65 @@ def main(debug):
         prefs = yaml.safe_load(file)
         file.close()
 
-        print(
-            prtclrs.blue
-            + prtclrs.bold
-            + "STARTING SWEEP FROM "
-            + str(prefs["starting_current"])
-            + " TO "
-            + str(prefs["sweep_limit"])
-            + prtclrs.reset
-        )
+        if not prefs["ignore_sweep"]:
 
-        # time_estimate = steps * step duration
-        # steps = 1 + ceil(current range / step magnitude)
-        time_estimate = round(
-            (
-                1
-                + math.ceil(
-                    (prefs["sweep_limit"] - prefs["starting_current"])
-                    / prefs["step_magnitude"]
-                )
+            print(
+                prtclrs.blue
+                + prtclrs.bold
+                + "STARTING SWEEP FROM "
+                + str(prefs["starting_current"])
+                + " TO "
+                + str(prefs["sweep_limit"])
+                + prtclrs.reset
             )
-            * prefs["step_duration"]
-        )
 
-        print(
-            "\tETA:\t"
-            + str(
+            # time_estimate = steps * step duration
+            # steps = 1 + ceil(current range / step magnitude)
+            time_estimate = round(
                 (
-                    datetime.datetime.now()
-                    + datetime.timedelta(seconds=time_estimate)
-                ).time()
+                    1
+                    + math.ceil(
+                        (prefs["sweep_limit"] - prefs["starting_current"])
+                        / prefs["step_magnitude"]
+                    )
+                )
+                * prefs["step_duration"]
             )
-            + " or "
-            + str(round((time_estimate / 60), 2))
-            + " minutes from now"
-        )
 
-        if debug:
-            input("Press enter to continue")
+            print(
+                "\tETA:\t"
+                + str(
+                    (
+                        datetime.datetime.now()
+                        + datetime.timedelta(seconds=time_estimate)
+                    ).time()
+                )
+                + " or "
+                + str(round((time_estimate / 60), 2))
+                + " minutes from now"
+            )
 
-        # Perform another sweep
-        max_sec_div = auto_er.sweep(
-            psu=psu,
-            step_duration=prefs["step_duration"],
-            step_magnitude=prefs["step_magnitude"],
-            sweep_limit=prefs["sweep_limit"],
-            csv_path=prefs["sweeps_csv_path"],
-            starting_current=prefs["starting_current"],
-            sweep_sample_amount=prefs["sweep_sample_amount"],
-        )
+            if debug:
+                input("Press enter to continue")
 
-        refining_current = (
-            max_sec_div * prefs["operating_percentage"]
-            + prefs["operating_offset"]
-        )
+            # Perform another sweep
+            max_sec_div = auto_er.sweep(
+                psu=psu,
+                step_duration=prefs["step_duration"],
+                step_magnitude=prefs["step_magnitude"],
+                sweep_limit=prefs["sweep_limit"],
+                csv_path=prefs["sweeps_csv_path"],
+                starting_current=prefs["starting_current"],
+                sweep_sample_amount=prefs["sweep_sample_amount"],
+            )
+
+            refining_current = (
+                max_sec_div * prefs["operating_percentage"]
+                + prefs["operating_offset"]
+            )
+
+        else:
+            print("Ignoring sweep, continuing...")
 
         #  ____    _    ____ _  __     _____ __  __ _____
         # | __ )  / \  / ___| |/ /    | ____|  \/  |  ___|

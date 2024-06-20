@@ -10,8 +10,13 @@ operating_percentage: 0.1 # 0.00 <-> 1.00
 resistance_tolerance: 0.08 # ohms
 resistance_time: 10 # seconds
 
+# Should sweeps be performed? Note that this has to be changed manually in
+# order to enable/disable sweeps. The first sweep (sweep_first) is unaffected
+# by this
+ignore_sweeps: True
+
 # Current, in amps, to add to the highest second derivative such that:
-# operating current = (max_sec_div * operating_percentage) + operating_offset 
+# operating current = (max_sec_div * operating_percentage) + operating_offset
 operating_offset: 0
 
 # Once the calculated resistance is high enough for long enough (as defined
