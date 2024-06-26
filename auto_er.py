@@ -16,6 +16,12 @@ import csv
 import numpy as np
 
 
+# To make main.py easier to read, some "global" variables are used:
+refine_succeeded = True
+max_sec_div = 0.0
+back_emf_at_time = 0.0
+
+
 # Refine at a specified current for a period, sampling current and voltage
 # throughout the process. Returns True after a successful refining period and
 # False if the calculated resistance shoots up too high for a long enough
@@ -86,14 +92,6 @@ def refine(
                 # And set the high_r_state bool so the start time doesn't reset
                 high_r_state = True
 
-            print(
-                "\033[35m"  # Purple
-                + "Calculated resistance above threshold.\t"
-                + str(resistance_time - (time.time() - high_r_start_time))
-                + "s until termination."
-                + "\033[0m"  # Reset
-            )
-
             # If it has had a high enough resistance for a long enough time
             if time.time() - high_r_start_time >= resistance_time:
                 psu.disable()  # Disable the power supply,
@@ -112,6 +110,14 @@ def refine(
 
                 # Break, and return False
                 return False
+
+            print(
+                "\033[35m"  # Purple
+                + "Calculated resistance above threshold.\t"
+                + str(resistance_time - (time.time() - high_r_start_time))
+                + "s until termination."
+                + "\033[0m"  # Reset
+            )
 
         # If the calculated resistance is NOT above the threshold
         else:
@@ -238,7 +244,7 @@ def sweep(
     with open(csv_path, "a", newline="") as csvfile:
         # Add in the first column so each sweep appended to the .csv is:
         # +-----------+-----------+-----------+-----------+----
-        # |  (blank)  | current_0 | current_1 | current_2 | ...
+        # |  CHARGE   | current_0 | current_1 | current_2 | ... FIXME: add charge!
         # +-----------+-----------+-----------+-----------+----
         # | timestamp | voltage_0 | voltage_1 | voltage_2 | ...
         # +-----------+-----------+-----------+-----------+----

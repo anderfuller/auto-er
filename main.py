@@ -9,22 +9,231 @@ in the same directory.
 
 """
 
-# FIXMES in priority order
-# FIXME: smoothing function on sweeps
-# FIXME: if x of y'' > x of y', just drop last refining current down
-# FIXME: if 1.25 < x < 1.75, just drop last refining current down
-# FIXME: add sweep print statements?
-# FIXME: add (back) graphing
-# FIXME: add error protection/run script
-
 import power_supply
 import auto_er
 import yaml
 import sys
-import datetime
+import datetime as dt
 import math
 
 YAML_FILE = "prefs.yaml"
+
+
+# Create your own loop inside this function.
+# Useful functions:
+#
+#   refine(current) or refine(current, time)
+#
+#   sweep() or sweep(magnitude, time)
+#
+#   back_emf() or back_emf(print_time, time)
+#
+# Useful variables:
+#
+#   auto_er.refine_succeeded:
+#       Whether or not the last refining period stopped early due to high
+#       resistance
+#
+#   auto_er.back_emf_at_time:
+#       Voltage of the last back emf period at the given print_time (ex 45s)
+#
+#   auto_er.max_sec_div:
+#       Current where the highest second derivative of voltage w.r.t. current
+#       occurs
+#
+#   p.refs["parameter"]:
+#       Contains the specifed parameter from prefs.yaml (quotes needed)
+
+
+def main():
+    setup()  # Needed when starting the program
+
+    if p.refs["sweep_first"]:
+        sweep()
+
+    # Until it fails...
+    while True:
+        refine(current=20, time=p.refs["refining_period"] / 2)
+        back_emf()
+
+        if not auto_er.refine_succeeded:
+            break
+
+        refine(current=20, time=p.refs["refining_period"] / 2)
+        sweep()
+
+        if not auto_er.refine_succeeded:
+            break
+
+    while True:
+        if not auto_er.refine_succeeded:
+            break
+        else:
+            refine(current=15, time=p.refs["refining_period"] / 2)
+            back_emf()
+
+        if not auto_er.refine_succeeded:
+            break
+        else:
+            refine(current=15, time=p.refs["refining_period"] / 2)
+            sweep()
+
+
+############################################################################
+## HELPER FUNCTIONS BELOW. NORMAL USE SHOULD ONLY NEED THE FUNCTION ABOVE ##
+############################################################################
+#
+#
+#
+#
+#
+#
+
+
+# Creates/refreshes a dictionary of all entries from prefs.yaml
+# It's named p() so that the name of the dictionary is p.refs to hopefully
+# make syntax more readable since it's accessed so often. Modifying
+# dictionaries during runtime is tricky, but this solution works
+def p():
+    file = open(YAML_FILE, "r")
+    p.refs = yaml.safe_load(file)
+    file.close()
+
+
+# Contains a few things for setting up. Most notably the Power_supply object
+def setup():
+    p()  # Create p.refs
+
+    setup.psu = power_supply.Power_supply(
+        ip=p.refs["psu_address"],
+        port=p.refs["psu_port"],
+        timeout=p.refs["psu_timeout"],
+        buffer=p.refs["psu_buffer"],
+        max_psu_voltage=p.refs["max_psu_voltage"],
+    )
+
+
+############
+## REFINE ##
+############
+# Refines at the given amperage for the given amount of time. All other
+# parameters are pulled from prefs.yaml
+def refine(current=main.refining_current, time=p.refs["refining_period"]):
+    p()  # Refresh prefs
+
+    # "REFINING AT [X]A FOR [X] MINUTES"
+    print(
+        prtclrs.red
+        + prtclrs.bold
+        + "REFINING AT "
+        + str(round(current, 2))
+        + "A FOR "
+        + str(round(time, 1))
+        + " MINUTES"
+        + prtclrs.reset
+    )
+
+    completion_time = dt.datetime.now() + dt.timedelta(minutes=time)
+
+    # ETA: [X]
+    print("\tETA:\t" + completion_time.strftime("%I:%M:%S %p"))
+
+    auto_er.refine_succeeded = auto_er.refine(
+        psu=setup.psu,
+        refining_current=current,
+        refining_period=time,
+        sample_period=p.refs["sample_period"],
+        resistance_tolerance=p.refs["resistance_tolerance"],
+        resistance_time=p.refs["resistance_time"],
+        csv_path=p.refs["data_csv_path"],
+        zero_pad_data=p.refs["zero_pad_data"],
+        max_refine_voltage=p.refs["max_refine_voltage"],
+        max_psu_voltage=p.refs["max_psu_voltage"],
+    )
+
+
+###########
+## SWEEP ##
+###########
+# Sweeps with the provided step duration and magnitude. All other parameters
+# are pulled from prefs.yaml
+def sweep(
+    magnitude=p.refs["step_magnitude"],
+    time=p.refs["step_duration"],
+):
+    p()  # Refresh Prefs
+
+    # "STARTING SWEEP FROM [X] TO [X]"
+    print(
+        prtclrs.blue
+        + prtclrs.bold
+        + "STARTING SWEEP FROM "
+        + str(round(p.refs["starting_current"], 2))
+        + " TO "
+        + str(round(p.refs["sweep_limit"], 2))
+        + prtclrs.reset
+    )
+
+    # time_estimate = steps * step duration
+    # steps = 1 + ceil(current range / step magnitude)
+    current_range = p.refs["sweep_limit"] - p.refs["starting_current"]
+    num_steps = 1 + math.ceil(current_range / magnitude)
+    time_estimate = num_steps * duration
+
+    # Add time for measurement to help with the time_estimate's accuracy
+    time_estimate += (
+        num_steps * p.refs["sweep_sample_amount"] * p.refs["sweep_latency"]
+    )
+
+    completion_time = dt.datetime.now() + dt.timedelta(seconds=time_estimate)
+
+    # ETA: [X]
+    print("\tETA:\t" + completion_time.strftime("%I:%M:%S %p"))
+
+    auto_er.max_sec_div = auto_er.sweep(
+        psu=setup.psu,
+        step_duration=duration,
+        step_magnitude=magnitude,
+        sweep_limit=p.refs["sweep_limit"],
+        csv_path=p.refs["sweeps_csv_path"],
+        starting_current=p.refs["starting_current"],
+        sweep_sample_amount=p.refs["sweep_sample_amount"],
+    )
+
+
+##############
+## BACK EMF ##
+##############
+# Record back emf for a given amount of time. The time when
+# auto_er.back_emf_at_time is recorded can also be provided here
+def back_emf(
+    print_time=p.refs["back_emf_print_time"],
+    time=p.refs["back_emf_period"],
+):
+    p()  # Refresh prefs
+
+    # "RECORDING BACK EMF FOR [X] SECONDS"
+    print(
+        prtclrs.green
+        + prtclrs.bold
+        + "RECORDING BACK EMF FOR "
+        + str(round(time))
+        + " SECONDS"
+        + prtclrs.reset
+    )
+
+    completion_time = dt.datetime.now() + dt.timedelta(seconds=time)
+
+    # ETA: [X]
+    print("\tETA:\t" + completion_time.strftime("%I:%M:%S %p"))
+
+    auto_er.back_emf_at_time = auto_er.back_emf(
+        psu=setup.psu,
+        back_emf_period=time,
+        csv_path=p.refs["back_emf_csv_path"],
+        disable_first=True,
+        back_emf_print_time=print_time,
+    )
 
 
 # "Print Colors": dictionary of ANSI escape codes for console printing purposes
@@ -48,320 +257,5 @@ class prtclrs:
     lightcyan = "\033[96m"
 
 
-def main(debug):
-    # Create a dictionary of all entries from prefs.yaml
-    file = open(YAML_FILE, "r")
-    prefs = yaml.safe_load(file)
-    file.close()
-
-    # Initialize a Power_supply object for communication
-    psu = power_supply.Power_supply(
-        ip=prefs["psu_address"],
-        port=prefs["psu_port"],
-        timeout=prefs["psu_timeout"],
-        buffer=prefs["psu_buffer"],
-        max_psu_voltage=prefs["max_psu_voltage"],
-    )
-
-    # Initialize our refining_current to one provided
-    refining_current = prefs["first_current"]
-
-    # Perform a sweep and override the line above by assigning refining_current
-    # to our newly calculated one
-    if prefs["sweep_first"]:
-
-        print(
-            prtclrs.blue
-            + prtclrs.bold
-            + "STARTING SWEEP FROM "
-            + str(prefs["starting_current"])
-            + " TO "
-            + str(prefs["sweep_limit"])
-            + prtclrs.reset
-        )
-
-        # time_estimate = steps * step duration
-        # steps = 1 + ceil(current range / step magnitude)
-        time_estimate = round(
-            (
-                1
-                + math.ceil(
-                    (prefs["sweep_limit"] - prefs["starting_current"])
-                    / prefs["step_magnitude"]
-                )
-            )
-            * prefs["step_duration"]
-        )
-
-        print(
-            "\tETA:\t"
-            + str(
-                (
-                    datetime.datetime.now()
-                    + datetime.timedelta(seconds=time_estimate)
-                ).time()
-            )
-            + " or "
-            + str(round((time_estimate / 60), 2))
-            + " minutes from now"
-        )
-
-        if debug:
-            input("Press enter to continue")
-
-        # Perform the sweep and get the maximum second derivative
-        max_sec_div = auto_er.sweep(
-            psu=psu,
-            step_duration=prefs["step_duration"],
-            step_magnitude=prefs["step_magnitude"],
-            sweep_limit=prefs["sweep_limit"],
-            csv_path=prefs["sweeps_csv_path"],
-            starting_current=prefs["starting_current"],
-            sweep_sample_amount=prefs["sweep_sample_amount"],
-        )
-
-        refining_current = (
-            max_sec_div * prefs["operating_percentage"]
-            + prefs["operating_offset"]
-        )
-
-    # Continue until the resistance shoots up, indicating the run is complete
-    while True:
-
-        #  ____  _____ _____ ___ _   _ _____
-        # |  _ \| ____|  ___|_ _| \ | | ____|
-        # | |_) |  _| | |_   | ||  \| |  _|
-        # |  _ <| |___|  _|  | || |\  | |___
-        # |_| \_\_____|_|   |___|_| \_|_____|
-        #####################################
-
-        # Refresh all the parameters
-        file = open(YAML_FILE, "r")
-        prefs = yaml.safe_load(file)
-        file.close()
-
-        print(
-            prtclrs.red
-            + prtclrs.bold
-            + "REFINING AT "
-            + str(refining_current)
-            + "A FOR "
-            + str(prefs["refining_period"])
-            + " MINUTES"
-            + prtclrs.reset
-        )
-
-        print(
-            "\tETA:\t"
-            + str(
-                (
-                    datetime.datetime.now()
-                    + datetime.timedelta(seconds=prefs["refining_period"] * 60)
-                ).time()
-            )
-        )
-
-        if debug:
-            input("Press enter to continue")
-
-        refine_succeeded = auto_er.refine(
-            psu=psu,
-            refining_current=refining_current,
-            refining_period=prefs["refining_period"],
-            sample_period=prefs["sample_period"],
-            resistance_tolerance=prefs["resistance_tolerance"],
-            resistance_time=prefs["resistance_time"],
-            csv_path=prefs["data_csv_path"],
-            zero_pad_data=prefs["zero_pad_data"],
-            max_refine_voltage=prefs["max_refine_voltage"],
-            max_psu_voltage=prefs["max_psu_voltage"],
-        )
-
-        # Stop immediately?
-        if (
-            not refine_succeeded  # Res. was too too high
-            and prefs["stop_after_resistance"]  # Stop after
-            and not prefs["sweep_after_resistance"]  # Don't sweep though
-        ):
-            psu.disable()
-            print(
-                prtclrs.purple
-                + prtclrs.bold
-                + "RESISTANCE TOO HIGH, ENDING RUN NOW"
-                + prtclrs.reset
-            )
-
-            if debug:
-                input("Press enter to continue")
-
-            # End the program
-            break
-
-        #  ______        _______ _____ ____
-        # / ___\ \      / / ____| ____|  _ \
-        # \___ \\ \ /\ / /|  _| |  _| | |_) |
-        #  ___) |\ V  V / | |___| |___|  __/
-        # |____/  \_/\_/  |_____|_____|_|
-        #####################################
-
-        # Refresh all the parameters
-        file = open(YAML_FILE, "r")
-        prefs = yaml.safe_load(file)
-        file.close()
-
-        if not prefs["ignore_sweep"]:
-
-            print(
-                prtclrs.blue
-                + prtclrs.bold
-                + "STARTING SWEEP FROM "
-                + str(prefs["starting_current"])
-                + " TO "
-                + str(prefs["sweep_limit"])
-                + prtclrs.reset
-            )
-
-            # time_estimate = steps * step duration
-            # steps = 1 + ceil(current range / step magnitude)
-            time_estimate = round(
-                (
-                    1
-                    + math.ceil(
-                        (prefs["sweep_limit"] - prefs["starting_current"])
-                        / prefs["step_magnitude"]
-                    )
-                )
-                * prefs["step_duration"]
-            )
-
-            print(
-                "\tETA:\t"
-                + str(
-                    (
-                        datetime.datetime.now()
-                        + datetime.timedelta(seconds=time_estimate)
-                    ).time()
-                )
-                + " or "
-                + str(round((time_estimate / 60), 2))
-                + " minutes from now"
-            )
-
-            if debug:
-                input("Press enter to continue")
-
-            # Perform another sweep
-            max_sec_div = auto_er.sweep(
-                psu=psu,
-                step_duration=prefs["step_duration"],
-                step_magnitude=prefs["step_magnitude"],
-                sweep_limit=prefs["sweep_limit"],
-                csv_path=prefs["sweeps_csv_path"],
-                starting_current=prefs["starting_current"],
-                sweep_sample_amount=prefs["sweep_sample_amount"],
-            )
-
-            refining_current = (
-                max_sec_div * prefs["operating_percentage"]
-                + prefs["operating_offset"]
-            )
-
-        else:
-            print("Ignoring sweep, continuing...")
-
-        #  ____    _    ____ _  __     _____ __  __ _____
-        # | __ )  / \  / ___| |/ /    | ____|  \/  |  ___|
-        # |  _ \ / _ \| |   | ' /     |  _| | |\/| | |_
-        # | |_) / ___ \ |___| . \     | |___| |  | |  _|
-        # |____/_/   \_\____|_|\_\    |_____|_|  |_|_|
-        ##################################################
-
-        # Refresh all the parameters
-        file = open(YAML_FILE, "r")
-        prefs = yaml.safe_load(file)
-        file.close()
-
-        print(
-            prtclrs.green
-            + prtclrs.bold
-            + "RECORDING BACK EMF FOR "
-            + str(prefs["back_emf_period"])
-            + " SECONDS"
-            + prtclrs.reset
-        )
-
-        print(
-            "\tETA:\t"
-            + str(
-                (
-                    datetime.datetime.now()
-                    + datetime.timedelta(seconds=prefs["back_emf_period"])
-                ).time()
-            )
-        )
-
-        if debug:
-            input("Press enter to continue")
-
-        # Record Back Emf
-        auto_er.back_emf(
-            psu=psu,
-            back_emf_period=prefs["back_emf_period"],
-            csv_path=prefs["back_emf_csv_path"],
-            disable_first=True,
-            back_emf_print_time=prefs["back_emf_print_time"],
-        )
-
-        # Stop now? After sweep?
-        if (
-            not refine_succeeded  # Res. was too too high
-            and prefs["stop_after_resistance"]  # Stop after
-        ):
-            psu.disable()
-            print(
-                prtclrs.purple
-                + prtclrs.bold
-                + "RESISTANCE TOO HIGH, ENDING RUN NOW"
-                + prtclrs.reset
-            )
-
-            if debug:
-                input("Press enter to continue")
-
-            # End the program
-            break
-
-
-# Just a different mode the script can run in, opens a shell-like interface
-# to the power supply:
-def shell():
-    # Create a dictionary of all entries from prefs.yaml
-    file = open(YAML_FILE, "r")
-    prefs = yaml.safe_load(file)
-    file.close()
-
-    # Initialize a Power_supply object for communication
-    psu = power_supply.Power_supply(
-        ip=prefs["psu_address"],
-        port=prefs["psu_port"],
-        timeout=prefs["psu_timeout"],
-        buffer=prefs["psu_buffer"],
-        max_psu_voltage=prefs["max_psu_voltage"],
-    )
-
-    while True:
-        command = input()
-        print(psu.read(command + ";*OPC?"))
-
-
 if __name__ == "__main__":
-    debug = False
-
-    if len(sys.argv) > 1:
-        if sys.argv[1] == "--debug":
-            debug = True
-
-        elif sys.argv[1] == "--shell":
-            shell()
-
-    main(debug)
+    main()
