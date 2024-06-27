@@ -18,7 +18,10 @@ import numpy as np
 
 # To make main.py easier to read, some "global" variables are used:
 refine_succeeded = True
-max_sec_div = 0.0
+min_dx = 0.0 # Minimum dx, should always be step_magnitude
+max_first_div = 0.0  # X Value (Current)
+max_sec_div = 0.0  # X value (Current)
+max_sec_div_y = 0.0  # Y value (V/A^2)
 back_emf_at_time = 0.0
 
 
@@ -34,6 +37,7 @@ def refine(
     resistance_tolerance,
     resistance_time,
     csv_path,
+    full_csv_path,
     zero_pad_data=True,
     max_refine_voltage=7.5,
     max_psu_voltage=12,
@@ -67,6 +71,16 @@ def refine(
 
         # Record the current and voltage to the csv
         with open(csv_path, "a", newline="") as csvfile:
+            csv.writer(csvfile).writerow(
+                [
+                    datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    current,
+                    voltage,
+                ]
+            )
+
+        # Record the current and voltage to the full csv
+        with open(full_csv_path, "a", newline="") as csvfile:
             csv.writer(csvfile).writerow(
                 [
                     datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -197,6 +211,8 @@ def sweep(
     step_magnitude,
     sweep_limit,
     csv_path,
+    full_csv_path,
+    smoothed,
     starting_current=0.0,
     sweep_sample_amount=5,
 ):
@@ -217,6 +233,17 @@ def sweep(
         total_voltage = 0
         for i in range(0, sweep_sample_amount):
             c, v = psu.measure()
+
+            # Record the current and voltage to the full csv
+            with open(full_csv_path, "a", newline="") as csvfile:
+                csv.writer(csvfile).writerow(
+                    [
+                        datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                        c,
+                        v,
+                    ]
+                )
+
             total_current += c
             total_voltage += v
 
@@ -244,7 +271,7 @@ def sweep(
     with open(csv_path, "a", newline="") as csvfile:
         # Add in the first column so each sweep appended to the .csv is:
         # +-----------+-----------+-----------+-----------+----
-        # |  CHARGE   | current_0 | current_1 | current_2 | ... FIXME: add charge!
+        # |  (blank)  | current_0 | current_1 | current_2 | ...
         # +-----------+-----------+-----------+-----------+----
         # | timestamp | voltage_0 | voltage_1 | voltage_2 | ...
         # +-----------+-----------+-----------+-----------+----
@@ -262,29 +289,43 @@ def sweep(
 
     # Now with a current and voltage array, find the maximum second derivative
 
-    # Ignore any divide by zero errors, as they are handled below
-    with np.errstate(divide="ignore", invalid="ignore"):
-        # First differentiate voltage w.r.t. current
-        dE_dI = np.where(
-            # Any zeros in the denominator will now result in the quotient
-            # being zero
-            np.diff(current_array) == 0,  # If entry is zero
-            0,  # Set to zero
-            np.diff(voltage_array)
-            / np.diff(current_array),  # Otherwise divide
+    # First differentiate voltage w.r.t. current
+    dE_dI = np.where(
+        # Any zeros in the denominator will now result in the quotient
+        # being zero
+        np.diff(current_array) == 0,  # If entry is zero
+        0,  # Set to zero
+        np.diff(voltage_array)
+        / np.diff(current_array),  # Otherwise divide
+    )
+
+    if smoothed:
+        smoothed_sec_div = __sg_sec_div_smoothed__(
+            current_array, voltage_array
         )
 
-        # Then differentiate that w.r.t. current (w/ size n-1)
-        d2E_dI2 = np.where(
-            np.diff(current_array)[:-1] == 0,
-            0,
-            np.diff(dE_dI) / np.diff(current_array)[:-1],
-        )
+        auto_er.max_sec_div_y = np.argmax(smoothed_sec_div)
+        auto_er.max_sec_div = float(current_array[auto_er.max_sec_div_y])
 
-    max_sec_div = float(current_array[np.argmax(d2E_dI2)])
+    else:
+        # Ignore any divide by zero errors, as they are handled below
+        with np.errstate(divide="ignore", invalid="ignore"):
+
+            # Then differentiate that w.r.t. current (w/ size n-1)
+            d2E_dI2 = np.where(
+                np.diff(current_array)[:-1] == 0,
+                0,
+                np.diff(dE_dI) / np.diff(current_array)[:-1],
+            )
+
+        auto_er.max_sec_div_y = np.argmax(d2E_dI2)
+        auto_er.max_sec_div = float(current_array[auto_er.max_sec_div_y])
+
+    auto_er.max_first_div = current_array[np.argmax(np.diff(dE_dI))]
+    auto_er.min_dx = np.argmin(np.diff(current_array))
 
     # Current corresponding to the index of the maximum second derivative
-    return max_sec_div
+    return auto_er.max_sec_div
 
 
 # Given two arrays of equal length, x and y, returns a second derivative of the

@@ -10,6 +10,9 @@ operating_percentage: 0.1 # 0.00 <-> 1.00
 resistance_tolerance: 0.08 # ohms
 resistance_time: 10 # seconds
 
+# Should sweeps return a smoothed second derivative?
+smooth_sec_div: True
+
 # Should sweeps be performed? Note that this has to be changed manually in
 # order to enable/disable sweeps. The first sweep (sweep_first) is unaffected
 # by this
@@ -50,6 +53,7 @@ zero_pad_data: True
 
 # Path names for the csv files
 data_csv_path: "data.csv"
+full_data_path: "full_data.csv"
 sweeps_csv_path: "sweeps.csv"
 back_emf_csv_path: "back_emf.csv"
 

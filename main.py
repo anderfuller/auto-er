@@ -9,12 +9,17 @@ in the same directory.
 
 """
 
+# FIXMES in priority order:
+# FIXME: multimeter readings
+# FIXME: sweep step duration auto-optimization (delta)
+
 import power_supply
 import auto_er
 import yaml
 import sys
 import datetime as dt
 import math
+import time
 
 YAML_FILE = "prefs.yaml"
 
@@ -48,46 +53,83 @@ YAML_FILE = "prefs.yaml"
 def main():
     setup()  # Needed when starting the program
 
-    if p.refs["sweep_first"]:
+    sweep()
+    refine(current=10, time=60)
+    sweep()
+    refine(current=10, time=5)
+    back_emf()
+
+    # Calculate the first refining_current
+    refining_current = 0.0
+
+    if sweep_valid() and not sweep_linear():
+        refining_current = (
+            auto_er.max_sec_div * p.refs["operating_percantage"]
+            + p.refs["operating_offset"]
+        )
+
+    elif sweep_valid and sweep_linear():
+        refining_current = 60
+
+    elif not sweep_valid():
+        refining_current = 10
+
+    # Main loop! Will break once a refining period fails (R too high)
+    while auto_er.refine_succeeded:
+        refine(current=refining_current)
+
+        print("Sweeping in 30s...")
+        time.sleep(30)
         sweep()
 
-    # Until it fails...
-    while True:
-        refine(current=20, time=p.refs["refining_period"] / 2)
+        refine(current=refining_current, time=5)
+
         back_emf()
 
-        if not auto_er.refine_succeeded:
-            break
+        # Calculate next refining_current if the sweep was valid
+        if sweep_valid():
+            if sweep_linear():
+                refining_current = 60
 
-        refine(current=20, time=p.refs["refining_period"] / 2)
-        sweep()
-
-        if not auto_er.refine_succeeded:
-            break
-
-    while True:
-        if not auto_er.refine_succeeded:
-            break
-        else:
-            refine(current=15, time=p.refs["refining_period"] / 2)
-            back_emf()
-
-        if not auto_er.refine_succeeded:
-            break
-        else:
-            refine(current=15, time=p.refs["refining_period"] / 2)
-            sweep()
+            else:
+                refining_current = (
+                    auto_er.max_sec_div * p.refs["operating_percantage"]
+                    + p.refs["operating_offset"]
+                )
 
 
-############################################################################
-## HELPER FUNCTIONS BELOW. NORMAL USE SHOULD ONLY NEED THE FUNCTION ABOVE ##
-############################################################################
-#
-#
-#
-#
-#
-#
+def sweep_valid():
+    if auto_er.min_dx < 0:
+        return False
+
+    elif auto_er.max_sec_div > auto_er.max_first_div:
+        return False
+
+    else:
+        return True
+
+
+def sweep_linear():
+    if auto_er.max_sec_div_y <= 0.015:
+        return True
+
+    else:
+        return False
+
+
+##########################################################################
+#                                                                        #
+#                                                                        #
+#                                                                        #
+#                                                                        #
+#                                                                        #
+# HELPER FUNCTIONS BELOW. NORMAL USE SHOULD ONLY NEED THE FUNCTION ABOVE #
+#                                                                        #
+#                                                                        #
+#                                                                        #
+#                                                                        #
+#                                                                        #
+##########################################################################
 
 
 # Creates/refreshes a dictionary of all entries from prefs.yaml
@@ -135,7 +177,7 @@ def refine(current=main.refining_current, time=p.refs["refining_period"]):
 
     completion_time = dt.datetime.now() + dt.timedelta(minutes=time)
 
-    # ETA: [X]
+    # "ETA: [X]"
     print("\tETA:\t" + completion_time.strftime("%I:%M:%S %p"))
 
     auto_er.refine_succeeded = auto_er.refine(
@@ -146,6 +188,7 @@ def refine(current=main.refining_current, time=p.refs["refining_period"]):
         resistance_tolerance=p.refs["resistance_tolerance"],
         resistance_time=p.refs["resistance_time"],
         csv_path=p.refs["data_csv_path"],
+        full_csv_path=p.refs["full_data_path"],
         zero_pad_data=p.refs["zero_pad_data"],
         max_refine_voltage=p.refs["max_refine_voltage"],
         max_psu_voltage=p.refs["max_psu_voltage"],
@@ -187,7 +230,7 @@ def sweep(
 
     completion_time = dt.datetime.now() + dt.timedelta(seconds=time_estimate)
 
-    # ETA: [X]
+    # "ETA: [X]"
     print("\tETA:\t" + completion_time.strftime("%I:%M:%S %p"))
 
     auto_er.max_sec_div = auto_er.sweep(
@@ -196,9 +239,27 @@ def sweep(
         step_magnitude=magnitude,
         sweep_limit=p.refs["sweep_limit"],
         csv_path=p.refs["sweeps_csv_path"],
+        full_csv_path=p.refs["full_data_path"],
+        smoothed=p.refs["smooth_sec_div"],
         starting_current=p.refs["starting_current"],
         sweep_sample_amount=p.refs["sweep_sample_amount"],
     )
+
+    # Short print statement about sweep results
+    if sweep_valid():
+        if sweep_linear():
+            print("\tSweep complete but was linear")
+
+        else:
+            print(
+                "\tSweep complete and valid. Max sec_div of "
+                + str(round(auto_er.max_sec_div_y, 2))
+                + "found at "
+                + str(round(auto_er.max_sec_div, 2))
+                + "A"
+            )
+    else:
+        print("\tSweep invalid!")
 
 
 ##############
@@ -224,7 +285,7 @@ def back_emf(
 
     completion_time = dt.datetime.now() + dt.timedelta(seconds=time)
 
-    # ETA: [X]
+    # "ETA: [X]"
     print("\tETA:\t" + completion_time.strftime("%I:%M:%S %p"))
 
     auto_er.back_emf_at_time = auto_er.back_emf(
