@@ -63,6 +63,12 @@ def main():
         # Normal sweep
         print("Sweeping in 30s...")
         time.sleep(30)
+        sweep(magnitude=1.5, time=30)
+
+        # 30s sweep
+        refine(current=current, time=2)
+        print("Sweeping in 30s...")
+        time.sleep(30)
         sweep(magnitude=1.5, time=10)
 
         # 1s sweep
@@ -89,8 +95,8 @@ def main():
             + p.refs["operating_offset"]
         )
 
-    elif sweep_valid and sweep_linear():
-        refining_current = 60
+    elif sweep_valid() and sweep_linear():
+        refining_current = 20
 
     elif not sweep_valid():
         refining_current = 20
@@ -110,7 +116,7 @@ def main():
         # Calculate next refining_current if the sweep was valid
         if sweep_valid():
             if sweep_linear():
-                refining_current = 60
+                refining_current = refining_current * 0.75
 
             else:
                 refining_current = (
