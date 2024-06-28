@@ -1,11 +1,11 @@
 # See README.md for explanations of parameters below
-refining_period: 3 # minutes
+refining_period: 0.25 # minutes
 back_emf_period: 5 # seconds
 sweep_duration: -1 # seconds
-sample_period: 15 # seconds
+sample_period: 1 # seconds
 step_duration: 0.1 # seconds
 step_magnitude: 0.1 # amps
-sweep_limit: 1 # amps
+sweep_limit: 10 # amps
 operating_percentage: 0.1 # 0.00 <-> 1.00
 resistance_tolerance: 0.08 # ohms
 resistance_time: 10 # seconds
@@ -32,7 +32,7 @@ stop_after_resistance: False
 
 # Time, in seconds to print out a back emf voltage. Must be less than
 # back_emf_period in order to function
-back_emf_print_time: 45
+back_emf_print_time: 3
 
 # Maximum voltage, in volts, to refine. If the voltage required to meet the
 # refining current exceeds this amount, the power suppply switch to constant
@@ -49,7 +49,7 @@ sweep_sample_amount: 1
 # Whether or not to add a row of zeroes to the main data .csv before refining
 # starts AND after refining finishes. That way, when integrating current w.r.t.
 # time, we can accurately account for the time not refining.
-zero_pad_data: True
+zero_pad_data: False
 
 # Path names for the csv files
 data_csv_path: "data.csv"

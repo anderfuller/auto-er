@@ -54,10 +54,31 @@ def main():
     setup()  # Needed when starting the program
 
     sweep()
-    refine(current=10, time=60)
-    sweep()
-    refine(current=10, time=5)
-    back_emf()
+
+    starting_currents = [10, 15, 20]
+
+    for current in starting_currents:
+        refine(current=current, time=60)
+
+        # Normal sweep
+        print("Sweeping in 30s...")
+        time.sleep(30)
+        sweep(magnitude=1.5, time=10)
+
+        # 1s sweep
+        refine(current=current, time=2)
+        print("Sweeping in 30s...")
+        time.sleep(30)
+        sweep(magnitude=1.5, time=1)
+
+        # Instant sweep
+        refine(current=current, time=2)
+        print("Sweeping in 30s...")
+        time.sleep(30)
+        sweep(magnitude=1.5, time=0)
+
+        refine(current=current, time=2)
+        back_emf()
 
     # Calculate the first refining_current
     refining_current = 0.0
@@ -72,7 +93,7 @@ def main():
         refining_current = 60
 
     elif not sweep_valid():
-        refining_current = 10
+        refining_current = 20
 
     # Main loop! Will break once a refining period fails (R too high)
     while auto_er.refine_succeeded:
@@ -82,7 +103,7 @@ def main():
         time.sleep(30)
         sweep()
 
-        refine(current=refining_current, time=5)
+        refine(current=refining_current, time=2)
 
         back_emf()
 
@@ -96,6 +117,9 @@ def main():
                     auto_er.max_sec_div * p.refs["operating_percantage"]
                     + p.refs["operating_offset"]
                 )
+
+        else:
+            refining_current = refining_current * 0.75
 
 
 def sweep_valid():
@@ -142,6 +166,9 @@ def p():
     file.close()
 
 
+p()
+
+
 # Contains a few things for setting up. Most notably the Power_supply object
 def setup():
     p()  # Create p.refs
@@ -152,6 +179,7 @@ def setup():
         timeout=p.refs["psu_timeout"],
         buffer=p.refs["psu_buffer"],
         max_psu_voltage=p.refs["max_psu_voltage"],
+        full_csv_path=p.refs["full_data_path"],
     )
 
 
@@ -160,7 +188,7 @@ def setup():
 ############
 # Refines at the given amperage for the given amount of time. All other
 # parameters are pulled from prefs.yaml
-def refine(current=main.refining_current, time=p.refs["refining_period"]):
+def refine(current, time=p.refs["refining_period"]):
     p()  # Refresh prefs
 
     # "REFINING AT [X]A FOR [X] MINUTES"
@@ -180,7 +208,7 @@ def refine(current=main.refining_current, time=p.refs["refining_period"]):
     # "ETA: [X]"
     print("\tETA:\t" + completion_time.strftime("%I:%M:%S %p"))
 
-    auto_er.refine_succeeded = auto_er.refine(
+    refine_status = auto_er.refine(
         psu=setup.psu,
         refining_current=current,
         refining_period=time,
@@ -188,11 +216,14 @@ def refine(current=main.refining_current, time=p.refs["refining_period"]):
         resistance_tolerance=p.refs["resistance_tolerance"],
         resistance_time=p.refs["resistance_time"],
         csv_path=p.refs["data_csv_path"],
-        full_csv_path=p.refs["full_data_path"],
         zero_pad_data=p.refs["zero_pad_data"],
         max_refine_voltage=p.refs["max_refine_voltage"],
         max_psu_voltage=p.refs["max_psu_voltage"],
     )
+
+    # This way it can't be changed back to True automatically
+    if not refine_status:
+        auto_er.refine_succeeded = False
 
 
 ###########
@@ -221,11 +252,11 @@ def sweep(
     # steps = 1 + ceil(current range / step magnitude)
     current_range = p.refs["sweep_limit"] - p.refs["starting_current"]
     num_steps = 1 + math.ceil(current_range / magnitude)
-    time_estimate = num_steps * duration
+    time_estimate = num_steps * time
 
     # Add time for measurement to help with the time_estimate's accuracy
     time_estimate += (
-        num_steps * p.refs["sweep_sample_amount"] * p.refs["sweep_latency"]
+        num_steps * p.refs["sweep_sample_amount"] * p.refs["sample_latency"]
     )
 
     completion_time = dt.datetime.now() + dt.timedelta(seconds=time_estimate)
@@ -235,11 +266,10 @@ def sweep(
 
     auto_er.max_sec_div = auto_er.sweep(
         psu=setup.psu,
-        step_duration=duration,
+        step_duration=time,
         step_magnitude=magnitude,
         sweep_limit=p.refs["sweep_limit"],
         csv_path=p.refs["sweeps_csv_path"],
-        full_csv_path=p.refs["full_data_path"],
         smoothed=p.refs["smooth_sec_div"],
         starting_current=p.refs["starting_current"],
         sweep_sample_amount=p.refs["sweep_sample_amount"],
@@ -319,4 +349,5 @@ class prtclrs:
 
 
 if __name__ == "__main__":
+    p()
     main()

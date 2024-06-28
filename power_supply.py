@@ -10,7 +10,8 @@ Keysight power supply.
 
 # Needed to use the TCP socket available on our power supply
 import socket
-
+import csv
+import datetime as dt
 
 class Power_supply:
     def __init__(
@@ -20,8 +21,10 @@ class Power_supply:
         timeout=5,
         buffer=1024,
         max_psu_voltage=12.5,
+        full_csv_path="full_data.csv",
     ):
 
+        self.full_csv_path = full_csv_path
         self.buffer = buffer
         self.socket = socket.socket()
         self.socket.settimeout(timeout)
@@ -96,10 +99,32 @@ class Power_supply:
     def disable(self):
         self.__sendln("OUTP OFF")
 
+        # Add a zero to the .csv
+        with open(self.full_csv_path, "a", newline="") as csvfile:
+            csv.writer(csvfile).writerow(
+                [
+                    # Seconds since epoch
+                    dt.datetime.timestamp(dt.datetime.now()),
+                    0.0,
+                    -1,
+                ]
+            )
+
     # Returns a tuple of (measured current, measured voltage)
     def measure(self):
         meas_curr = float(self.__read("MEAS:CURR?"))
         meas_volt = float(self.__read("MEAS:VOLT?"))
+
+        with open(self.full_csv_path, "a", newline="") as csvfile:
+            csv.writer(csvfile).writerow(
+                [
+                    # Seconds since epoch
+                    dt.datetime.timestamp(dt.datetime.now()),
+                    meas_curr,
+                    meas_volt,
+                ]
+            )
+
         return (meas_curr, meas_volt)
 
     # Accessor method for main.shell()
