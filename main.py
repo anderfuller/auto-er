@@ -3,337 +3,418 @@
 
 """ main.py
 
-This is the high-level driver script for the autonomous electrorefining
-process. Preferences and parameters are pulled from the prefs.yaml file found
-in the same directory.
+This script contains the logic for autonomous electrorefining. Users can create
+their own custom Auto ER profiles within the main function. Functions for
+refining, sweeping, and recording back emf are included as well.
+
+Example profile (put in the main() function):
+    refine_succeeded = True
+    while refine_succeeded:
+
+        refine_succeeded = refine_dc(
+            current=10,
+            refining_period=60,
+            sample_period=5,
+            voltage_limit=7,
+            do_r=True,
+            r_threshold=0.3,
+            r_time=60,
+        )
+
+        sweep(
+            min_current=0,
+            max_current=60,
+            current_step=1.5,
+            settle_time=10,
+            voltage_limit=12.5,
+        )
+
+        back_emf(
+            record_time=60,
+            report_time=45,
+        )
 
 """
 
-# FIXMES in priority order:
-# FIXME: multimeter readings
-# FIXME: sweep step duration auto-optimization (delta)
-
-import power_supply
-import auto_er
-import yaml
-import sys
+import power_supplies
 import datetime as dt
-import math
 import time
-
-YAML_FILE = "prefs.yaml"
-
-
-# Create your own loop inside this function.
-# Useful functions:
-#
-#   refine(current) or refine(current, time)
-#
-#   sweep() or sweep(magnitude, time)
-#
-#   back_emf() or back_emf(print_time, time)
-#
-# Useful variables:
-#
-#   auto_er.refine_succeeded:
-#       Whether or not the last refining period stopped early due to high
-#       resistance
-#
-#   auto_er.back_emf_at_time:
-#       Voltage of the last back emf period at the given print_time (ex 45s)
-#
-#   auto_er.max_sec_div:
-#       Current where the highest second derivative of voltage w.r.t. current
-#       occurs
-#
-#   p.refs["parameter"]:
-#       Contains the specifed parameter from prefs.yaml (quotes needed)
+import csv
+import sys
+import math
 
 
+# Create your own custom Auto ER profile in the following function:
 def main():
-    setup()  # Needed when starting the program
 
-    sweep()
+    ### PHASE I: 10 -> 15 -> 20 ###
+    # Avoids any weird resistance things that happen initally, will force
+    # 10 -> 15 -> 20
 
-    starting_currents = [10, 15, 20]
+    back_emf()
 
-    for current in starting_currents:
-        refine(current=current, time=60)
+    refine_dc(current=10, refining_period=60, do_r=False)
+    back_emf()
+    sweep(max_current=20)
 
-        # Normal sweep
-        print("Sweeping in 30s...")
-        time.sleep(30)
-        sweep(magnitude=1.5, time=30)
+    refine_dc(current=15, refining_period=60, do_r=False)
+    back_emf()
+    sweep(max_current=25)
 
-        # 30s sweep
-        refine(current=current, time=2)
-        print("Sweeping in 30s...")
-        time.sleep(30)
-        sweep(magnitude=1.5, time=10)
+    refine_dc(current=20, refining_period=60, do_r=False)
+    back_emf()
+    sweep(max_current=30)
 
-        # 1s sweep
-        refine(current=current, time=2)
-        print("Sweeping in 30s...")
-        time.sleep(30)
-        sweep(magnitude=1.5, time=1)
+    ### PHASE II: Increase by 5 until "failure" (R too high) ###
+    refine_succeeded = True
+    current_up = 25
 
-        # Instant sweep
-        refine(current=current, time=2)
-        print("Sweeping in 30s...")
-        time.sleep(30)
-        sweep(magnitude=1.5, time=0)
-
-        refine(current=current, time=2)
+    # Until R gets too high, loop
+    while refine_succeeded:
+        refine_succeeded = refine_dc(current=current_up, refining_period=60)
         back_emf()
 
-    # Calculate the first refining_current
-    refining_current = 0.0
+        # To avoid sweeping too agressively, only go from
+        # 0 -> operarting current + 10
 
-    if sweep_valid() and not sweep_linear():
-        refining_current = (
-            auto_er.max_sec_div * p.refs["operating_percantage"]
-            + p.refs["operating_offset"]
-        )
+        max_current = current_up + 10
+        if max_current > 60:
+            max_current = 60
 
-    elif sweep_valid() and sweep_linear():
-        refining_current = 20
+        if refine_succeeded:
+            sweep(max_current=max_current)
 
-    elif not sweep_valid():
-        refining_current = 20
+        current_up = current_up + 5
 
-    # Main loop! Will break once a refining period fails (R too high)
-    while auto_er.refine_succeeded:
-        refine(current=refining_current)
+        # Max it out at 60 A
+        if current_up >= 60:
+            current_up = 60
 
-        print("Sweeping in 30s...")
-        time.sleep(30)
-        sweep()
+    # Once it fails:
+    refine_succeeded = True
+    ### PHASE III: Decrease by 5 every time it fails until 15 ###
 
-        refine(current=refining_current, time=2)
+    # First current is 5 less than failing point
+    current_down = current_up - 5
 
-        back_emf()
+    # As long as current is at least 20:
+    while current_down >= 20:
 
-        # Calculate next refining_current if the sweep was valid
-        if sweep_valid():
-            if sweep_linear():
-                refining_current = refining_current * 0.75
+        # Maintain current until "failure"
+        while refine_succeeded:
+            refine_succeeded = refine_dc(
+                current=current_down, refining_period=60
+            )
+            back_emf()
 
-            else:
-                refining_current = (
-                    auto_er.max_sec_div * p.refs["operating_percantage"]
-                    + p.refs["operating_offset"]
-                )
+            # To avoid sweeping too agressively, only go from
+            # 0 -> operarting current + 10
 
-        else:
-            refining_current = refining_current * 0.75
+            max_current = current_down + 10
+            if max_current > 60:
+                max_current = 60
 
+            if refine_succeeded:
+                sweep(max_current=max_current)
 
-def sweep_valid():
-    if auto_er.min_dx < 0:
-        return False
+        # Once it "fails," decrease operating current by 5 and repeat
+        current_down = current_down - 5
+        refine_succeeded = True
 
-    elif auto_er.max_sec_div > auto_er.max_first_div:
-        return False
-
-    else:
-        return True
+    # Once current is less than 20 (15), stop
 
 
-def sweep_linear():
-    if auto_er.max_sec_div_y <= 0.015:
-        return True
-
-    else:
-        return False
-
-
-##########################################################################
-#                                                                        #
-#                                                                        #
-#                                                                        #
-#                                                                        #
-#                                                                        #
-# HELPER FUNCTIONS BELOW. NORMAL USE SHOULD ONLY NEED THE FUNCTION ABOVE #
-#                                                                        #
-#                                                                        #
-#                                                                        #
-#                                                                        #
-#                                                                        #
-##########################################################################
-
-
-# Creates/refreshes a dictionary of all entries from prefs.yaml
-# It's named p() so that the name of the dictionary is p.refs to hopefully
-# make syntax more readable since it's accessed so often. Modifying
-# dictionaries during runtime is tricky, but this solution works
-def p():
-    file = open(YAML_FILE, "r")
-    p.refs = yaml.safe_load(file)
-    file.close()
-
-
-p()
-
-
-# Contains a few things for setting up. Most notably the Power_supply object
+# Required before executing the main function; creates and initializes the
+# Power_supplies object that's used for communication
 def setup():
-    p()  # Create p.refs
-
-    setup.psu = power_supply.Power_supply(
-        ip=p.refs["psu_address"],
-        port=p.refs["psu_port"],
-        timeout=p.refs["psu_timeout"],
-        buffer=p.refs["psu_buffer"],
-        max_psu_voltage=p.refs["max_psu_voltage"],
-        full_csv_path=p.refs["full_data_path"],
-    )
+    setup.psu = power_supplies.Power_supplies()
 
 
-############
-## REFINE ##
-############
-# Refines at the given amperage for the given amount of time. All other
-# parameters are pulled from prefs.yaml
-def refine(current, time=p.refs["refining_period"]):
-    p()  # Refresh prefs
+# Refines at a specifed current for a specifed amount of time. If enabled,
+# refining will terminate early based on the behavior of the static resistance
+# and will return False. Otherwise, return True. Parameters are explained within
+# the function.
+def refine_dc(
+    current,
+    refining_period=60,
+    sample_period=5,
+    voltage_limit=7,
+    do_r=True,
+    r_threshold=0.3,
+    r_time=60,
+):
+    """
+    Parameters
+    ----------
+        current : int or float
+            refining current (in amps)
+        refining_period : int or float, optional
+            period to refine (in minutes)
+        sample_period : int or float, optional
+            the amount of time between measurements of the current and voltage
+            (in seconds)
+        voltage_limit : int or float, optional
+            voltage limit enforced on the power supply during refining (in
+            volts)
+        do_r : bool, optional
+            enables the auto-termination functionality
+        r_threshold : int or float, optional
+            if the static resistance is above this value for a specified amount
+            of time, refining will automatically stop (in ohms)
+        r_time : int or float, optional
+            the amount of consecutive time that the static resistance needs to
+            be above r_threshold (in seconds)
+    """
 
-    # "REFINING AT [X]A FOR [X] MINUTES"
     print(
         prtclrs.red
         + prtclrs.bold
-        + "REFINING AT "
-        + str(round(current, 2))
+        + "REFINING DC AT "
+        + f"{current:05.2f}"
         + "A FOR "
-        + str(round(time, 1))
+        + f"{refining_period:03.0f}"
         + " MINUTES"
         + prtclrs.reset
     )
 
-    completion_time = dt.datetime.now() + dt.timedelta(minutes=time)
+    completion_time = dt.datetime.now() + dt.timedelta(minutes=refining_period)
 
     # "ETA: [X]"
     print("\tETA:\t" + completion_time.strftime("%I:%M:%S %p"))
 
-    refine_status = auto_er.refine(
-        psu=setup.psu,
-        refining_current=current,
-        refining_period=time,
-        sample_period=p.refs["sample_period"],
-        resistance_tolerance=p.refs["resistance_tolerance"],
-        resistance_time=p.refs["resistance_time"],
-        csv_path=p.refs["data_csv_path"],
-        zero_pad_data=p.refs["zero_pad_data"],
-        max_refine_voltage=p.refs["max_refine_voltage"],
-        max_psu_voltage=p.refs["max_psu_voltage"],
-    )
+    setup.psu.disable_dc()
 
-    # This way it can't be changed back to True automatically
-    if not refine_status:
-        auto_er.refine_succeeded = False
+    setup.psu.set_dc_voltage(voltage_limit)
+    setup.psu.set_dc_current(current)
+    setup.psu.enable_dc()
+
+    start_time = time.time()
+
+    high_r_state = False
+
+    while time.time() - start_time <= refining_period * 60:
+        curr, volt = setup.psu.record_dc()
+        calculated_resistance = 0
+
+        try:
+            calculated_resistance = volt / curr
+        except:
+            pass
+
+        if do_r:
+            if calculated_resistance >= r_threshold:
+                if not high_r_state:
+                    high_r_start_time = time.time()
+                    high_r_state = True
+
+                if time.time() - high_r_start_time >= r_time:
+                    setup.psu.disable_dc()
+                    return False
+
+                print(
+                    prtclrs.purple
+                    + "Calculated resistance above threshold.\t"
+                    + str(round(60 - (time.time() - high_r_start_time), 0))
+                    + "s until termination."
+                    + prtclrs.reset
+                )
+
+            else:
+                high_r_state = False
+
+        time.sleep(sample_period)
+
+    setup.psu.disable_dc()
+    return True
 
 
-###########
-## SWEEP ##
-###########
-# Sweeps with the provided step duration and magnitude. All other parameters
-# are pulled from prefs.yaml
+# Performs a current sweep and appends the data to the sweeps CSV file.
+# Parameters are explained within the function.
 def sweep(
-    magnitude=p.refs["step_magnitude"],
-    time=p.refs["step_duration"],
+    min_current=0,
+    max_current=60,
+    current_step=1.5,
+    settle_time=10,
+    voltage_limit=12.5,
 ):
-    p()  # Refresh Prefs
+    """
+    Parameters
+    ----------
+        min_current : int or float, optional
+            optional, current to start (in amps)
+        max_current : int or float, optional
+            current to end at (in amps)
+        current_step : int or float, optional
+            amount of current to increase between steps of the sweep (in amps)
+        settle_time : int or float, optional
+            amount of time to wait for the voltage to settle after increasing
+            the current (in seconds)
+        voltage_limit : int or float, optional
+            voltage limit enforced on the power supply while sweeping (in volts)
+    """
 
-    # "STARTING SWEEP FROM [X] TO [X]"
     print(
         prtclrs.blue
         + prtclrs.bold
         + "STARTING SWEEP FROM "
-        + str(round(p.refs["starting_current"], 2))
-        + " TO "
-        + str(round(p.refs["sweep_limit"], 2))
+        + str(min_current)
+        + "A -> "
+        + str(max_current)
+        + "A"
         + prtclrs.reset
     )
 
-    # time_estimate = steps * step duration
-    # steps = 1 + ceil(current range / step magnitude)
-    current_range = p.refs["sweep_limit"] - p.refs["starting_current"]
-    num_steps = 1 + math.ceil(current_range / magnitude)
-    time_estimate = num_steps * time
+    num_steps = math.ceil((max_current - min_current) / current_step + 1)
 
-    # Add time for measurement to help with the time_estimate's accuracy
-    time_estimate += (
-        num_steps * p.refs["sweep_sample_amount"] * p.refs["sample_latency"]
-    )
+    # Due to sensor latency, it takes about 0.3s per step to record data
+    duration = num_steps * (settle_time + 0.3)
 
-    completion_time = dt.datetime.now() + dt.timedelta(seconds=time_estimate)
-
-    # "ETA: [X]"
+    completion_time = dt.datetime.now() + dt.timedelta(seconds=duration)
     print("\tETA:\t" + completion_time.strftime("%I:%M:%S %p"))
 
-    auto_er.max_sec_div = auto_er.sweep(
-        psu=setup.psu,
-        step_duration=time,
-        step_magnitude=magnitude,
-        sweep_limit=p.refs["sweep_limit"],
-        csv_path=p.refs["sweeps_csv_path"],
-        smoothed=p.refs["smooth_sec_div"],
-        starting_current=p.refs["starting_current"],
-        sweep_sample_amount=p.refs["sweep_sample_amount"],
-    )
+    setup.psu.set_dc_voltage(voltage_limit)
+    setup.psu.set_dc_current(min_current)
 
-    # Short print statement about sweep results
-    if sweep_valid():
-        if sweep_linear():
-            print("\tSweep complete but was linear")
+    start_time = time.time()
+    start_dt = dt.datetime.now()
+    setup.psu.enable_dc()
 
-        else:
-            print(
-                "\tSweep complete and valid. Max sec_div of "
-                + str(round(auto_er.max_sec_div_y, 2))
-                + "found at "
-                + str(round(auto_er.max_sec_div, 2))
-                + "A"
-            )
-    else:
-        print("\tSweep invalid!")
+    curr_array = []
+    volt_array = []
+
+    step = 0
+    # Increase by the set amount until you meet or exceed the max current
+    while step < max_current:
+        setup.psu.set_dc_current(step)
+        setup.psu.meas_dc()
+
+        time.sleep(settle_time)
+
+        curr, volt = setup.psu.meas_dc()
+        curr_array.append(curr)
+        volt_array.append(volt)
+
+        step += current_step
+
+    # After meeting or exceeding the max current, do one last step at the max
+    # current:
+    setup.psu.set_dc_current(max_current)
+    setup.psu.meas_dc()
+
+    time.sleep(settle_time)
+    curr, volt = setup.psu.meas_dc()
+    curr_array.append(curr)
+    volt_array.append(volt)
+
+    setup.psu.disable_dc()
+
+    with open("sweeps.csv", "a", newline="") as csvfile:
+        # Add in the first column so each sweep appended to the .csv is:
+        # +-----------+-----------+-----------+-----------+----
+        # |  (blank)  | current_0 | current_1 | current_2 | ...
+        # +-----------+-----------+-----------+-----------+----
+        # | timestamp | voltage_0 | voltage_1 | voltage_2 | ...
+        # +-----------+-----------+-----------+-----------+----
+
+        current_row = [""]
+        voltage_row = [start_dt.strftime("%Y-%m-%d %H:%M:%S")]
+        for c in curr_array:
+            current_row.append(str(c))
+
+        for v in volt_array:
+            voltage_row.append(str(v))
+
+        csv.writer(csvfile).writerow(current_row)
+        csv.writer(csvfile).writerow(voltage_row)
 
 
-##############
-## BACK EMF ##
-##############
-# Record back emf for a given amount of time. The time when
-# auto_er.back_emf_at_time is recorded can also be provided here
+# Records back EMF for a specifed amount of time to the back_emf CSV file. It
+# also prints the back EMF after a specifed amount of time to the terminal.
 def back_emf(
-    print_time=p.refs["back_emf_print_time"],
-    time=p.refs["back_emf_period"],
+    record_time=60,
+    report_time=45,
 ):
-    p()  # Refresh prefs
+    """
+    Parameters
+    ----------
+        record_time : int or float, optional
+            duration of back EMF recording (in seconds)
+        report_time : int or float, optional
+            print the voltage to the terminal after this amount of time has
+            passed (in seconds)
+    """
 
-    # "RECORDING BACK EMF FOR [X] SECONDS"
     print(
         prtclrs.green
         + prtclrs.bold
         + "RECORDING BACK EMF FOR "
-        + str(round(time))
+        + str(record_time)
         + " SECONDS"
         + prtclrs.reset
     )
 
-    completion_time = dt.datetime.now() + dt.timedelta(seconds=time)
+    time_array = [""]
+    volt_array = [dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")]
 
-    # "ETA: [X]"
-    print("\tETA:\t" + completion_time.strftime("%I:%M:%S %p"))
+    start_time = time.time()
+    bemf_printed = False
 
-    auto_er.back_emf_at_time = auto_er.back_emf(
-        psu=setup.psu,
-        back_emf_period=time,
-        csv_path=p.refs["back_emf_csv_path"],
-        disable_first=True,
-        back_emf_print_time=print_time,
-    )
+    while time.time() - start_time <= record_time:
+        volt = setup.psu.meas_dc_volt()
+        volt_array.append(str(float(volt)))
+        time_array.append(str(time.time() - start_time))
+
+        if time.time() - start_time >= report_time and not bemf_printed:
+            print(
+                prtclrs.green
+                + "Back emf voltage at "
+                + str(report_time)
+                + "s:\t"
+                + str(volt)
+                + prtclrs.reset
+            )
+            bemf_printed = True
+
+    with open("back_emf.csv", "a", newline="") as csvfile:
+        csv.writer(csvfile).writerow(time_array)
+        csv.writer(csvfile).writerow(volt_array)
 
 
-# "Print Colors": dictionary of ANSI escape codes for console printing purposes
+# Obsolete function used for AC refining
+# def refine_ac(ac_volt, dc_offset, refining_period=60):
+
+#     print(
+#         prtclrs.red
+#         + prtclrs.bold
+#         + "REFINING AC+DC AT "
+#         + str(round(dc_offset, 2))
+#         + "+/- "
+#         + str(round(ac_volt, 2))
+#         + "FOR 60 MINUTES"
+#         + prtclrs.reset
+#     )
+
+#     completion_time = dt.datetime.now() + dt.timedelta(minutes=refining_period)
+
+#     # "ETA: [X]"
+#     print("\tETA:\t" + completion_time.strftime("%I:%M:%S %p"))
+
+#     setup.psu.disable_ac()
+#     setup.psu.set_ac_voltage(ac_volt)
+#     setup.psu.set_dc_offset(dc_offset)
+
+#     start_time = time.time()
+#     setup.psu.enable_ac()
+#     print("here")
+#     while time.time() - start_time <= refining_period * 60:
+#         print("there")
+#         setup.psu.record_ac()
+#         time.sleep(5)
+
+#     setup.psu.disable_ac()
+
+
+# "Print colors": a helper dictionary of terminal codes to change color
 class prtclrs:
     reset = "\033[0m"
     bold = "\033[01m"
@@ -355,5 +436,5 @@ class prtclrs:
 
 
 if __name__ == "__main__":
-    p()
+    setup()
     main()
