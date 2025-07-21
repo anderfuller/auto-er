@@ -1,3 +1,5 @@
+Note: This branch contains the refined code that was used in the replicate runs.
+
 # Autonomous Electrorefining
 
 Developed by Anderson Fuller: [anderson_fuller@byu.edu](docs/mailto:anderson_fuller@byu.edu)

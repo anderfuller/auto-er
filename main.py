@@ -124,16 +124,15 @@ def main():
     # Once current is less than 20 (15), stop
 
 
-# Required before executing the main function; creates and initializes the
-# Power_supplies object that's used for communication
 def setup():
+    """
+    Required before executing the main function; creates and initializes the
+    Power_supplies object that's used for communication
+    """
+
     setup.psu = power_supplies.Power_supplies()
 
 
-# Refines at a specifed current for a specifed amount of time. If enabled,
-# refining will terminate early based on the behavior of the static resistance
-# and will return False. Otherwise, return True. Parameters are explained within
-# the function.
 def refine_dc(
     current,
     refining_period=60,
@@ -144,6 +143,10 @@ def refine_dc(
     r_time=60,
 ):
     """
+    Refines at a specifed current for a specifed amount of time. If enabled,
+    refining will terminate early based on the behavior of the static resistance
+    and will return False. Otherwise, return True.
+
     Parameters
     ----------
         current : int or float
@@ -172,7 +175,7 @@ def refine_dc(
         + "REFINING DC AT "
         + f"{current:05.2f}"
         + "A FOR "
-        + f"{refining_period:03.0f}"
+        + f"{refining_period:0.0f}"
         + " MINUTES"
         + prtclrs.reset
     )
@@ -214,7 +217,7 @@ def refine_dc(
                 print(
                     prtclrs.purple
                     + "Calculated resistance above threshold.\t"
-                    + str(round(60 - (time.time() - high_r_start_time), 0))
+                    + str(round(60 - (time.time() - high_r_start_time), 1))
                     + "s until termination."
                     + prtclrs.reset
                 )
@@ -228,8 +231,6 @@ def refine_dc(
     return True
 
 
-# Performs a current sweep and appends the data to the sweeps CSV file.
-# Parameters are explained within the function.
 def sweep(
     min_current=0,
     max_current=60,
@@ -238,6 +239,8 @@ def sweep(
     voltage_limit=12.5,
 ):
     """
+    Performs a current sweep and appends the data to the sweeps CSV file.
+
     Parameters
     ----------
         min_current : int or float, optional
@@ -266,8 +269,8 @@ def sweep(
 
     num_steps = math.ceil((max_current - min_current) / current_step + 1)
 
-    # Due to sensor latency, it takes about 0.3s per step to record data
-    duration = num_steps * (settle_time + 0.3)
+    # Due to sensor latency, it takes about 1.5s per step to record data
+    duration = num_steps * (settle_time + 1.5)
 
     completion_time = dt.datetime.now() + dt.timedelta(seconds=duration)
     print("\tETA:\t" + completion_time.strftime("%I:%M:%S %p"))
@@ -328,13 +331,14 @@ def sweep(
         csv.writer(csvfile).writerow(voltage_row)
 
 
-# Records back EMF for a specifed amount of time to the back_emf CSV file. It
-# also prints the back EMF after a specifed amount of time to the terminal.
 def back_emf(
     record_time=60,
     report_time=45,
 ):
     """
+    Records back EMF for a specifed amount of time to the back_emf CSV file. It
+    also prints the back EMF after a specifed amount of time to the terminal.
+
     Parameters
     ----------
         record_time : int or float, optional
@@ -380,6 +384,107 @@ def back_emf(
         csv.writer(csvfile).writerow(volt_array)
 
 
+# "Print colors": a helper dictionary of terminal codes to change color
+class prtclrs:
+    reset = "\033[0m"
+    bold = "\033[01m"
+    black = "\033[30m"
+    red = "\033[31m"
+    green = "\033[32m"
+    orange = "\033[33m"
+    blue = "\033[34m"
+    purple = "\033[35m"
+    cyan = "\033[36m"
+    lightgrey = "\033[37m"
+    darkgrey = "\033[90m"
+    lightred = "\033[91m"
+    lightgreen = "\033[92m"
+    yellow = "\033[93m"
+    lightblue = "\033[94m"
+    pink = "\033[95m"
+    lightcyan = "\033[96m"
+
+
+if __name__ == "__main__":
+    setup()
+    main()
+
+# Obsolete function, was used to capture data to fit to a transfer function
+# def refine_xfer(
+#     current,
+#     xfer_period=2,
+#     refining_period=60,
+#     sample_period=5,
+#     voltage_limit=7,
+#     do_r=True,
+#     r_threshold=0.3,
+#     r_time=60,
+# ):
+#     """
+#     Wrapper function for refine_dc(). It rapidally records the DC voltage at the
+#     start of the refining period, then refines normally. The purpose is to
+#     collect data to then fit to a transfer (xfer) function.
+
+#     Parameters
+#     ----------
+#         current : int or float
+#             refining current (in amps)
+#         xfer_period : int or float
+#             time to rapidally record the DC voltage (in minutes)
+#         refining_period : int or float, optional
+#             total period to refine (in minutes)
+#         sample_period : int or float, optional
+#             the amount of time between measurements of the current and voltage
+#             (in seconds)
+#         voltage_limit : int or float, optional
+#             voltage limit enforced on the power supply during refining (in
+#             volts)
+#         do_r : bool, optional
+#             enables the auto-termination functionality
+#         r_threshold : int or float, optional
+#             if the static resistance is above this value for a specified amount
+#             of time, refining will automatically stop (in ohms)
+#         r_time : int or float, optional
+#             the amount of consecutive time that the static resistance needs to
+#             be above r_threshold (in seconds)
+#     """
+
+#     print(
+#         prtclrs.orange
+#         + prtclrs.bold
+#         + "BRIEFLY REFINING DC AT "
+#         + f"{current:05.2f}"
+#         + "A FOR "
+#         + f"{xfer_period:0.0f}"
+#         + " MINUTES TO COLLECT DATA FOR A XFER FUNCTION"
+#         + prtclrs.reset
+#     )
+
+#     setup.psu.disable_dc()
+
+#     setup.psu.set_dc_voltage(voltage_limit)
+#     setup.psu.set_dc_current(current)
+
+#     start_time = time.time()
+#     setup.psu.enable_dc()
+
+#     curr, volt = setup.psu.record_dc()
+
+#     while time.time() - start_time <= xfer_period * 60:
+#         setup.psu.record_dc_volt(curr)
+
+#     setup.psu.disable_dc()
+
+#     return refine_dc(
+#         current=current,
+#         refining_period=refining_period - xfer_period,
+#         sample_period=sample_period,
+#         voltage_limit=voltage_limit,
+#         do_r=do_r,
+#         r_threshold=r_threshold,
+#         r_time=r_time,
+#     )
+
 # Obsolete function used for AC refining
 # def refine_ac(ac_volt, dc_offset, refining_period=60):
 
@@ -412,29 +517,3 @@ def back_emf(
 #         time.sleep(5)
 
 #     setup.psu.disable_ac()
-
-
-# "Print colors": a helper dictionary of terminal codes to change color
-class prtclrs:
-    reset = "\033[0m"
-    bold = "\033[01m"
-    black = "\033[30m"
-    red = "\033[31m"
-    green = "\033[32m"
-    orange = "\033[33m"
-    blue = "\033[34m"
-    purple = "\033[35m"
-    cyan = "\033[36m"
-    lightgrey = "\033[37m"
-    darkgrey = "\033[90m"
-    lightred = "\033[91m"
-    lightgreen = "\033[92m"
-    yellow = "\033[93m"
-    lightblue = "\033[94m"
-    pink = "\033[95m"
-    lightcyan = "\033[96m"
-
-
-if __name__ == "__main__":
-    setup()
-    main()
