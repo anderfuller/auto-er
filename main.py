@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-""" main.py
+"""main.py
 
 This script contains the logic for autonomous electrorefining. Users can create
 their own custom Auto ER profiles within the main function. Functions for
@@ -11,7 +11,7 @@ Example profile (put in the main() function):
     refine_succeeded = True
     while refine_succeeded:
 
-        refine_succeeded = refine_dc(
+        refine_succeeded = refine(
             current=10,
             refining_period=60,
             sample_period=5,
@@ -44,84 +44,79 @@ import sys
 import math
 
 
-# Create your own custom Auto ER profile in the following function:
 def main():
 
-    ### PHASE I: 10 -> 15 -> 20 ###
-    # Avoids any weird resistance things that happen initally, will force
-    # 10 -> 15 -> 20
+    ### PHASE I: STARTUP ###
+    # This phase is necessary because the resistance is sometimes high during
+    # the first couple hours of refining.
 
-    back_emf()
+    # If we want to record Back EMF every 30 minutes and sweep every 120 minutes,
+    # we will just refine for 30 minutes four times:
+    for i in range(0, 4):
 
-    refine_dc(current=10, refining_period=60, do_r=False)
-    back_emf()
-    sweep(max_current=20)
+        # First, refine for 30 minutes
+        refine(
+            current=20,  # 20 A
+            refining_period=30,  # 30 minutes
+            sample_period=5,  # Sampling voltage/current every 5 s
+            voltage_limit=7,  # Hard voltage limit of 7 V at the power supply
+            do_r=False,  # Do not auto-terminate
+        )
 
-    refine_dc(current=15, refining_period=60, do_r=False)
-    back_emf()
-    sweep(max_current=25)
+        # Then, record Back EMF
+        back_emf(
+            record_time=60,  # Record Back EMF for 60s
+        )
 
-    refine_dc(current=20, refining_period=60, do_r=False)
-    back_emf()
-    sweep(max_current=30)
+    # After refining for 120 minutes, perform the first sweep:
+    sweep(
+        min_current=0,  # 0 A (inclusive)
+        max_current=25,  # 25 A (inclusive)
+        current_step=1.5,  # 1.5 A between steps
+        settle_time=10,  # Wait 10 s before recording the voltage and moving to the next step
+        voltage_limit=12.5,  # Hard voltage limit of 12.5V at the power supply
+    )
 
-    ### PHASE II: Increase by 5 until "failure" (R too high) ###
-    refine_succeeded = True
-    current_up = 25
+    ### PHASE II: MAINTAIN 20 A UNTIL COMPLETION ###
+    # In this phase, the same procedure happens, except it will automatically terminate
+    # once the resistance gets high enough.
 
-    # Until R gets too high, loop
-    while refine_succeeded:
-        refine_succeeded = refine_dc(current=current_up, refining_period=60)
-        back_emf()
+    # Loop until exit():
+    while True:
 
-        # To avoid sweeping too agressively, only go from
-        # 0 -> operarting current + 10
+        # Again, loop 4 times for every sweep:
+        for i in range(0, 4):
 
-        max_current = current_up + 10
-        if max_current > 60:
-            max_current = 60
-
-        if refine_succeeded:
-            sweep(max_current=max_current)
-
-        current_up = current_up + 5
-
-        # Max it out at 60 A
-        if current_up >= 60:
-            current_up = 60
-
-    # Once it fails:
-    refine_succeeded = True
-    ### PHASE III: Decrease by 5 every time it fails until 15 ###
-
-    # First current is 5 less than failing point
-    current_down = current_up - 5
-
-    # As long as current is at least 20:
-    while current_down >= 20:
-
-        # Maintain current until "failure"
-        while refine_succeeded:
-            refine_succeeded = refine_dc(
-                current=current_down, refining_period=60
+            # "Succeeded" means it did NOT automatically stop
+            the_last_refining_period_succeeded = refine(
+                current=20,  # 20 A
+                refining_period=30,  # 30 minutes
+                sample_period=5,  # Sampling voltage/current every 5 s
+                voltage_limit=7,  # Hard voltage limit of 7 V at the power supply
+                do_r=True,  # Do auto-terminate
+                # If it's above 0.3 ohms for 60 consecutive seconds, stop
+                r_threshold=0.3,
+                r_time=60,
             )
-            back_emf()
 
-            # To avoid sweeping too agressively, only go from
-            # 0 -> operarting current + 10
+            back_emf(
+                record_time=60,  # Record Back EMF for 60s
+            )
 
-            max_current = current_down + 10
-            if max_current > 60:
-                max_current = 60
+            # If the last refining period automatically stopped, terminate the run
+            # (don't do another sweep at the end):
+            if not the_last_refining_period_succeeded:
+                # Stop the program:
+                exit()
 
-            if refine_succeeded:
-                sweep(max_current=max_current)
-
-        # Once it "fails," decrease operating current by 5 and repeat
-        current_down = current_down - 5
-        refine_succeeded = True
-
-    # Once current is less than 20 (15), stop
+        # After refining for 120 minutes, perform a sweep:
+        sweep(
+            min_current=0,  # 0 A (inclusive)
+            max_current=25,  # 25 A (inclusive)
+            current_step=1.5,  # 1.5 A between steps
+            settle_time=10,  # Wait 10 s before recording the voltage and moving to the next step
+            voltage_limit=12.5,  # Hard voltage limit of 12.5V at the power supply
+        )
 
 
 def setup():
@@ -133,7 +128,7 @@ def setup():
     setup.psu = power_supplies.Power_supplies()
 
 
-def refine_dc(
+def refine(
     current,
     refining_period=60,
     sample_period=5,
@@ -143,30 +138,35 @@ def refine_dc(
     r_time=60,
 ):
     """
-    Refines at a specifed current for a specifed amount of time. If enabled,
+    Refines at a specified current for a specified amount of time. If enabled,
     refining will terminate early based on the behavior of the static resistance
     and will return False. Otherwise, return True.
 
     Parameters
     ----------
-        current : int or float
+        current : float
             refining current (in amps)
-        refining_period : int or float, optional
+        refining_period : float, optional
             period to refine (in minutes)
-        sample_period : int or float, optional
+        sample_period : float, optional
             the amount of time between measurements of the current and voltage
             (in seconds)
-        voltage_limit : int or float, optional
+        voltage_limit : float, optional
             voltage limit enforced on the power supply during refining (in
             volts)
         do_r : bool, optional
             enables the auto-termination functionality
-        r_threshold : int or float, optional
+        r_threshold : float, optional
             if the static resistance is above this value for a specified amount
             of time, refining will automatically stop (in ohms)
-        r_time : int or float, optional
+        r_time : float, optional
             the amount of consecutive time that the static resistance needs to
             be above r_threshold (in seconds)
+
+    Returns
+    -------
+        bool : False if the refining period terminated early due to high
+               resistance, True otherwise
     """
 
     print(
@@ -243,16 +243,16 @@ def sweep(
 
     Parameters
     ----------
-        min_current : int or float, optional
-            optional, current to start (in amps)
-        max_current : int or float, optional
+        min_current : float, optional
+            current to start (in amps)
+        max_current : float, optional
             current to end at (in amps)
-        current_step : int or float, optional
+        current_step : float, optional
             amount of current to increase between steps of the sweep (in amps)
-        settle_time : int or float, optional
+        settle_time : float, optional
             amount of time to wait for the voltage to settle after increasing
             the current (in seconds)
-        voltage_limit : int or float, optional
+        voltage_limit : float, optional
             voltage limit enforced on the power supply while sweeping (in volts)
     """
 
@@ -269,7 +269,8 @@ def sweep(
 
     num_steps = math.ceil((max_current - min_current) / current_step + 1)
 
-    # Due to sensor latency, it takes about 1.5s per step to record data
+    # Due to our specific sensor latency, it takes about 1.5 s per step to
+    # record data
     duration = num_steps * (settle_time + 1.5)
 
     completion_time = dt.datetime.now() + dt.timedelta(seconds=duration)
@@ -336,14 +337,14 @@ def back_emf(
     report_time=45,
 ):
     """
-    Records back EMF for a specifed amount of time to the back_emf CSV file. It
-    also prints the back EMF after a specifed amount of time to the terminal.
+    Records back EMF for a specified amount of time to the back_emf CSV file. It
+    also prints the back EMF after a specified amount of time to the terminal.
 
     Parameters
     ----------
-        record_time : int or float, optional
+        record_time : float, optional
             duration of back EMF recording (in seconds)
-        report_time : int or float, optional
+        report_time : float, optional
             print the voltage to the terminal after this amount of time has
             passed (in seconds)
     """
@@ -384,7 +385,7 @@ def back_emf(
         csv.writer(csvfile).writerow(volt_array)
 
 
-# "Print colors": a helper dictionary of terminal codes to change color
+# "Print colors": a helper dictionary of ANSI terminal codes to change colors
 class prtclrs:
     reset = "\033[0m"
     bold = "\033[01m"
@@ -408,112 +409,3 @@ class prtclrs:
 if __name__ == "__main__":
     setup()
     main()
-
-# Obsolete function, was used to capture data to fit to a transfer function
-# def refine_xfer(
-#     current,
-#     xfer_period=2,
-#     refining_period=60,
-#     sample_period=5,
-#     voltage_limit=7,
-#     do_r=True,
-#     r_threshold=0.3,
-#     r_time=60,
-# ):
-#     """
-#     Wrapper function for refine_dc(). It rapidally records the DC voltage at the
-#     start of the refining period, then refines normally. The purpose is to
-#     collect data to then fit to a transfer (xfer) function.
-
-#     Parameters
-#     ----------
-#         current : int or float
-#             refining current (in amps)
-#         xfer_period : int or float
-#             time to rapidally record the DC voltage (in minutes)
-#         refining_period : int or float, optional
-#             total period to refine (in minutes)
-#         sample_period : int or float, optional
-#             the amount of time between measurements of the current and voltage
-#             (in seconds)
-#         voltage_limit : int or float, optional
-#             voltage limit enforced on the power supply during refining (in
-#             volts)
-#         do_r : bool, optional
-#             enables the auto-termination functionality
-#         r_threshold : int or float, optional
-#             if the static resistance is above this value for a specified amount
-#             of time, refining will automatically stop (in ohms)
-#         r_time : int or float, optional
-#             the amount of consecutive time that the static resistance needs to
-#             be above r_threshold (in seconds)
-#     """
-
-#     print(
-#         prtclrs.orange
-#         + prtclrs.bold
-#         + "BRIEFLY REFINING DC AT "
-#         + f"{current:05.2f}"
-#         + "A FOR "
-#         + f"{xfer_period:0.0f}"
-#         + " MINUTES TO COLLECT DATA FOR A XFER FUNCTION"
-#         + prtclrs.reset
-#     )
-
-#     setup.psu.disable_dc()
-
-#     setup.psu.set_dc_voltage(voltage_limit)
-#     setup.psu.set_dc_current(current)
-
-#     start_time = time.time()
-#     setup.psu.enable_dc()
-
-#     curr, volt = setup.psu.record_dc()
-
-#     while time.time() - start_time <= xfer_period * 60:
-#         setup.psu.record_dc_volt(curr)
-
-#     setup.psu.disable_dc()
-
-#     return refine_dc(
-#         current=current,
-#         refining_period=refining_period - xfer_period,
-#         sample_period=sample_period,
-#         voltage_limit=voltage_limit,
-#         do_r=do_r,
-#         r_threshold=r_threshold,
-#         r_time=r_time,
-#     )
-
-# Obsolete function used for AC refining
-# def refine_ac(ac_volt, dc_offset, refining_period=60):
-
-#     print(
-#         prtclrs.red
-#         + prtclrs.bold
-#         + "REFINING AC+DC AT "
-#         + str(round(dc_offset, 2))
-#         + "+/- "
-#         + str(round(ac_volt, 2))
-#         + "FOR 60 MINUTES"
-#         + prtclrs.reset
-#     )
-
-#     completion_time = dt.datetime.now() + dt.timedelta(minutes=refining_period)
-
-#     # "ETA: [X]"
-#     print("\tETA:\t" + completion_time.strftime("%I:%M:%S %p"))
-
-#     setup.psu.disable_ac()
-#     setup.psu.set_ac_voltage(ac_volt)
-#     setup.psu.set_dc_offset(dc_offset)
-
-#     start_time = time.time()
-#     setup.psu.enable_ac()
-#     print("here")
-#     while time.time() - start_time <= refining_period * 60:
-#         print("there")
-#         setup.psu.record_ac()
-#         time.sleep(5)
-
-#     setup.psu.disable_ac()
